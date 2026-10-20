@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Turnfall: run on phone emulator (F5)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/tools/run-android.js",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    }
+  ]
+}

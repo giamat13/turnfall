@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The window colour shows for the first frame. The screens themselves are drawn in Compose. -->
+    <style name="Theme.Turnfall" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/paper_light</item>
+    </style>
+</resources>

@@ -1,1 +1,4 @@
 * text=auto eol=lf
+
+# The Windows launcher of Gradle must keep CRLF line endings to run in cmd.exe
+*.bat text eol=crlf
