@@ -2,10 +2,12 @@ package io.github.giamat13.turnfall
 
 import android.app.Application
 import android.content.Intent
+import android.view.Choreographer
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.runtime.MonotonicFrameClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -47,6 +49,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -303,7 +306,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun animateAngle() {
-        viewModelScope.launch {
+        viewModelScope.launch(ViewFrames) {
             rotation.animateTo(angle.toFloat(), tween(durationMillis = turnMillis().toInt(), easing = TURN_EASING))
         }
     }
@@ -323,7 +326,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private fun walkBall(r: Slide) {
         val factor = settings.speed.factor
         val path = listOf(pos) + r.path
-        viewModelScope.launch {
+        viewModelScope.launch(ViewFrames) {
             if (factor > 0f) {
                 walkPath = path
                 walkProgress.snapTo(0f)
@@ -388,7 +391,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun pulseGoal() {
-        viewModelScope.launch {
+        viewModelScope.launch(ViewFrames) {
             ringOn = true
             repeat(2) {
                 ring.snapTo(0f)
@@ -652,3 +655,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
 private val TURN_EASING = CubicBezierEasing(0.45f, 0.05f, 0.25f, 1f)
 private val EASE_OUT = CubicBezierEasing(0f, 0f, 0.58f, 1f)
+
+/**
+ * Animatable needs a frame clock in its coroutine. viewModelScope has none, and launching there crashes on the
+ * first animateTo. This clock takes its frames from Choreographer, the same source Compose uses.
+ */
+private val ViewFrames = object : MonotonicFrameClock {
+    override suspend fun <R> withFrameNanos(onFrame: (Long) -> R): R = suspendCancellableCoroutine { cont ->
+        val callback = Choreographer.FrameCallback { nanos -> cont.resumeWith(runCatching { onFrame(nanos) }) }
+        Choreographer.getInstance().postFrameCallback(callback)
+        cont.invokeOnCancellation { Choreographer.getInstance().removeFrameCallback(callback) }
+    }
+}

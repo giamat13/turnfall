@@ -104,8 +104,11 @@ fun Joystick(
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
                         if (change.pressed) {
-                            dragX = (change.position.x - origin).coerceIn(-radius, radius)
-                            if (radius > 0f) vm.joyMoved(dragX / radius)
+                            // coerceIn throws when the range is empty, so a track too narrow for the knob is skipped.
+                            if (radius > 0f) {
+                                dragX = (change.position.x - origin).coerceIn(-radius, radius)
+                                vm.joyMoved(dragX / radius)
+                            }
                         } else {
                             finished = true
                         }
