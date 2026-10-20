@@ -1,0 +1,1570 @@
+<title>Turnfall</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Secular+One&display=swap" rel="stylesheet">
+<style>
+/* Bright and playful, in the spirit of a casual puzzle game: rounded surfaces with a darker lower edge that gives them
+   weight. The world, the ball and the joystick keep their own look; everything around them stays quiet. */
+:root {
+  direction: ltr;
+  --paper: #e6eeff;
+  --surface: #ffffff;
+  --tile: #d3e2ff;
+  --mud: #f2d08f;
+  --mud-ink: #7d5a1e;
+  --pit: #e5583c;
+  --pit-ink: #3a0d05;
+  --wall: #3d6cf2;
+  --wall-lip: #2a4fc4;
+  --ink: #1c2857;
+  --ink-2: #5b6a9a;
+  --line: rgba(28, 40, 87, 0.14);
+  --edge: #b7c8ee;
+  --sun: #ffc83d;
+  --sun-edge: #1c2857;
+  --vermilion: #f2552e;
+  --hole: #0d1538;
+  --on-sun: #1c2857;
+  --on-ink: #ffffff;
+  --focus: #f2552e;
+  --scrim: rgba(13, 21, 56, 0.45);
+  --turn: 420ms;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0c1334;
+    --surface: #161f4a;
+    --tile: #212d63;
+    --mud: #6e5a2e;
+    --mud-ink: #f0d495;
+    --pit: #b8402a;
+    --pit-ink: #080303;
+    --wall: #7d9fff;
+    --wall-lip: #6686f0;
+    --ink: #eef2ff;
+    --ink-2: #a3b0d6;
+    --line: rgba(238, 242, 255, 0.14);
+    --edge: #060b25;
+    --sun: #ffc83d;
+    --sun-edge: #050a20;
+    --vermilion: #ff6b4a;
+    --hole: #050a20;
+    --on-sun: #0c1334;
+    --on-ink: #0c1334;
+    --focus: #ff6b4a;
+    --scrim: rgba(5, 10, 32, 0.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0c1334;
+  --surface: #161f4a;
+  --tile: #212d63;
+  --mud: #6e5a2e;
+  --mud-ink: #f0d495;
+  --pit: #b8402a;
+  --pit-ink: #080303;
+  --wall: #7d9fff;
+  --wall-lip: #6686f0;
+  --ink: #eef2ff;
+  --ink-2: #a3b0d6;
+  --line: rgba(238, 242, 255, 0.14);
+  --edge: #060b25;
+  --sun: #ffc83d;
+  --sun-edge: #050a20;
+  --vermilion: #ff6b4a;
+  --hole: #050a20;
+  --on-sun: #0c1334;
+  --on-ink: #0c1334;
+  --focus: #ff6b4a;
+  --scrim: rgba(5, 10, 32, 0.6);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { height: 100vh; height: 100dvh; }
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Assistant', system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 8px 12px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+h1, h2, h3 { font-family: 'Secular One', 'Assistant', sans-serif; font-weight: 400; line-height: 1.05; margin: 0; text-wrap: balance; }
+button { font: inherit; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.app { height: 100%; max-width: 460px; margin: 0 auto; display: flex; flex-direction: column; }
+
+/* Top bar: a dot and three round buttons */
+.top { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 44px; }
+.brand { margin: 0; display: flex; align-items: center; }
+.brand::before { content: ""; flex: none; width: 16px; height: 16px; border-radius: 50%; background: var(--sun); box-shadow: 0 2px 0 var(--edge); }
+.top-tools { display: flex; gap: 10px; }
+.icon-btn { flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; color: var(--ink); background: var(--surface); border: 0; border-radius: 50%; box-shadow: 0 3px 0 var(--edge); cursor: pointer; }
+.icon-btn svg { width: 20px; height: 20px; }
+.btn svg, .icon-btn svg, .nav-btn svg { fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* The play screen: its fixed parts take their natural height, and the world gets the rest */
+#play { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.panel-top, .panel-bottom { display: contents; }
+.kicker { margin: 4px 0 0; font-family: 'Secular One', 'Assistant', sans-serif; font-size: 32px; line-height: 1.1; text-align: center; }
+
+/* The readout: turns on the right, the dial in the middle, the target on the left */
+.dash { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin: 10px 0 0; padding: 10px 16px; background: var(--surface); border-radius: 20px; box-shadow: 0 4px 0 var(--edge); }
+.stat { display: grid; min-width: 0; }
+.stat.alt { justify-items: end; text-align: end; }
+.stat.over .num { color: var(--vermilion); }
+.label { font-size: 13px; font-weight: 700; line-height: 1.3; color: var(--ink-2); }
+.num { font-family: 'Secular One', 'Assistant', sans-serif; font-size: 34px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.num.bump { animation: bump .32s ease-out; }
+.dial { position: relative; width: 50px; height: 50px; border: 3px solid var(--ink); border-radius: 50%; }
+.dial::after { content: ""; position: absolute; left: 50%; bottom: -8px; width: 3px; height: 6px; margin-left: -1.5px; background: var(--ink); }
+.needle { position: absolute; inset: 0; transition: transform var(--turn) cubic-bezier(.45, .05, .25, 1); }
+.needle::before { content: ""; position: absolute; left: 50%; bottom: 4px; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; background: var(--vermilion); }
+
+/* The world: a square as large as the space allows, up to 360px */
+.board-wrap { flex: 1 1 0; min-height: 0; display: grid; place-items: center; container-type: size; }
+.board { position: relative; width: min(100%, 360px); width: min(100cqw, 100cqh, 360px); aspect-ratio: 1; padding: 10px; background: var(--surface); border: 0; border-radius: 22px; box-shadow: 0 6px 0 var(--edge); overflow: hidden; touch-action: manipulation; }
+.board.shake { animation: shake .32s ease-in-out; }
+#stage { width: 100%; aspect-ratio: 1; transition: transform var(--turn) cubic-bezier(.45, .05, .25, 1); }
+#stage svg { display: block; width: 100%; height: auto; }
+#board .tile { fill: var(--tile); }
+#board .tile.mud { fill: var(--mud); }
+#board .tile.pit { fill: var(--pit); }
+#board .mudspot { fill: var(--mud-ink); opacity: 0.45; }
+#board .pitdot { fill: var(--pit-ink); }
+#board .arrow { fill: var(--ink); opacity: 0.75; }
+#board .spring { fill: none; stroke: var(--ink); stroke-width: 0.07; stroke-linejoin: round; stroke-linecap: round; }
+#board .wall { fill: var(--wall); }
+#board .lip { fill: var(--wall-lip); }
+#board .hole { fill: var(--hole); }
+#board .goal { fill: none; stroke: var(--vermilion); stroke-width: 0.07; }
+#board .goal.pulse { transform-box: fill-box; transform-origin: center; animation: ring .9s ease-out 2; }
+#board .ball { fill: var(--sun); stroke: var(--sun-edge); stroke-width: 0.05; }
+#board .shine { fill: #ffffff; opacity: 0.8; }
+#board .trail { fill: none; stroke: var(--ink); stroke-width: 0.08; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 0.14 0.14; opacity: 0.55; }
+#board .ghost { fill: var(--sun); fill-opacity: 0.6; stroke: var(--ink); stroke-width: 0.05; stroke-dasharray: 0.1 0.08; }
+#board .ghost.win { fill-opacity: 1; stroke-dasharray: none; }
+#board .ghost.mud { fill: var(--mud); fill-opacity: 1; stroke: var(--mud-ink); stroke-dasharray: none; }
+#board .ghost.pit { fill: var(--vermilion); fill-opacity: 0.7; stroke: var(--vermilion); }
+#board .ghost.wall { fill: var(--ink); fill-opacity: 0.16; }
+#ball-body { transform-box: fill-box; transform-origin: center; transition: transform .3s ease, opacity .3s ease; }
+#ball-body.land { animation: squash .38s ease-out; }
+#ball-body.mud { transform: scale(0.8); }
+#ball-body.drop { transform: scale(0.25); opacity: 0.25; }
+#ball-body.sink { transform: scale(0); }
+
+/* One line of text under the world. Its height stays fixed, so the world never moves when the text changes. */
+.msg { min-height: 1.6em; margin: 12px 0 0; font-size: 15px; font-weight: 700; line-height: 1.6; color: var(--ink-2); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* The handle: a bar that slides left and right. Push it past half way to one side to see where the ball would go, and
+   let go to turn that way. It springs back to the middle. Pushed less than half way, it turns nothing. */
+.joy { --h: 64px; --gw: 68px; --gh: 48px; position: relative; flex: none; width: 100%; max-width: 300px; height: var(--h); margin: 10px auto 0; background: var(--surface); border: 0; border-radius: 999px; box-shadow: 0 4px 0 var(--edge); overflow: hidden; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.joy::before { content: ""; position: absolute; left: 52px; right: 52px; top: 50%; height: 0; border-top: 2px dashed var(--line); }
+.joy::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 50%; border-radius: 999px 0 0 999px; background: var(--tile); opacity: 0; pointer-events: none; transition: opacity .12s ease; }
+.joy.pull-r::after { left: auto; right: 0; border-radius: 0 999px 999px 0; }
+.joy.pull-l::after, .joy.pull-r::after { opacity: 1; }
+.joy-arrow { position: absolute; z-index: 1; top: 50%; width: 22px; height: 22px; margin-top: -11px; fill: none; stroke: var(--ink-2); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.joy-arrow.l { left: 14px; }
+.joy-arrow.r { right: 14px; }
+.joy.pull-l .joy-arrow.l, .joy.pull-r .joy-arrow.r { stroke: var(--ink); }
+.joy-knob { position: absolute; z-index: 1; left: 50%; top: 50%; width: var(--gw); height: var(--gh); margin: calc(var(--gh) / -2) 0 0 calc(var(--gw) / -2); border-radius: 16px; background: var(--sun); border: 2px solid var(--sun-edge); transition: transform .18s cubic-bezier(.2, .8, .2, 1); }
+.joy-knob.held { transition: none; }
+.joy-knob::after { content: ""; position: absolute; left: 50%; top: 50%; width: 2px; height: 20px; margin: -10px 0 0 -1px; border-radius: 2px; background: var(--on-sun); box-shadow: -7px 0 0 var(--on-sun), 7px 0 0 var(--on-sun); opacity: 0.6; }
+.joy.off { opacity: 0.4; cursor: default; }
+/* On the first visit the knob nudges twice, so the player sees that it moves */
+.joy.teach .joy-knob { animation: nudge 1.2s ease-in-out 2; }
+
+/* The buttons under the joystick: chunky, with a lower edge that the press pushes in */
+.tools { display: flex; gap: 10px; margin-top: 10px; }
+.btn { position: relative; flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 0 12px; font: 700 15px/1.1 'Assistant', system-ui, sans-serif; color: var(--ink); background: var(--surface); border: 0; border-radius: 18px; box-shadow: 0 4px 0 var(--edge); cursor: pointer; }
+.btn svg { width: 22px; height: 22px; flex: none; }
+.btn.solid { color: var(--on-sun); background: var(--sun); }
+.btn.danger { color: var(--vermilion); }
+.btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--edge); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn .n { position: absolute; top: -7px; inset-inline-end: -7px; min-width: 24px; height: 24px; padding: 0 6px; display: grid; place-items: center; border-radius: 999px; background: var(--ink); color: var(--paper); font: 800 13px/1 'Assistant', system-ui, sans-serif; }
+.btn:focus-visible, .icon-btn:focus-visible, .lvl:focus-visible, .seg:focus-visible, .daily-card:focus-visible, .nav-btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+
+/* The level is done: a card over the world, so it shows at any scroll position */
+.win { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px; background: var(--scrim); animation: fade .3s ease both; }
+.win-card { position: relative; display: grid; gap: 12px; width: min(100%, 340px); padding: 22px 20px 20px; background: var(--surface); border-radius: 26px; box-shadow: 0 8px 0 var(--edge); overflow: hidden; text-align: center; animation: rise .45s cubic-bezier(.2, .8, .2, 1) both; }
+.win-card .tools { flex-wrap: wrap; margin-top: 6px; }
+.win-card .tools .btn { flex: 1 1 auto; }
+.stars { margin: 0; font-family: 'Secular One', 'Assistant', sans-serif; font-size: 44px; line-height: 1; letter-spacing: 2px; text-align: center; color: var(--vermilion); animation: pop .6s .1s cubic-bezier(.2, 1.4, .4, 1) both; }
+.win-title { margin: 0; font-size: 17px; font-weight: 700; text-align: center; text-wrap: balance; }
+.confetti { position: absolute; inset: 0; pointer-events: none; }
+.confetti i { position: absolute; top: -14px; width: 9px; height: 13px; border-radius: 3px; background: var(--c); animation: fall var(--d) ease-in var(--t) both; }
+
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.3); } 100% { transform: scale(1); } }
+@keyframes fall { 0% { transform: translate(0, 0) rotate(0deg); } 100% { transform: translate(var(--dx), 440px) rotate(600deg); opacity: 0; } }
+@keyframes nudge { 0%, 100% { transform: translate(0, 0); } 30% { transform: translate(-28px, 0); } 70% { transform: translate(28px, 0); } }
+@keyframes squash { 0% { transform: scale(1.2, 0.8); } 45% { transform: scale(0.94, 1.06); } 100% { transform: scale(1); } }
+@keyframes ring { from { transform: scale(1); opacity: 1; } to { transform: scale(1.9); opacity: 0; } }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+@keyframes pulse { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.08); } }
+
+/* Sheets: the level path, settings and the chapter map. Each one fits its screen, and nothing scrolls. */
+.sheet { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; gap: 14px; overflow: hidden; background: var(--paper); padding-top: calc(12px + env(safe-area-inset-top, 0px)); padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.sheet.over-map { z-index: 30; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; max-width: 460px; margin: 0 auto; }
+.sheet-head h2 { font-size: 30px; text-wrap: balance; }
+.sheet-body { display: grid; align-content: start; gap: 14px; width: 100%; max-width: 460px; margin: 0 auto; min-height: 0; }
+.sheet-body .col { display: grid; align-content: start; gap: 14px; min-width: 0; }
+.daily-card { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 12px; width: 100%; padding: 14px 16px; text-align: start; color: var(--ink); background: var(--surface); border: 0; border-radius: 20px; box-shadow: 0 4px 0 var(--edge); cursor: pointer; }
+.daily-card .d-title { font-family: 'Secular One', 'Assistant', sans-serif; font-size: 22px; line-height: 1.1; }
+.daily-card .d-sub { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.daily-card .d-stars { grid-row: 1 / span 2; grid-column: 2; font-size: 15px; letter-spacing: 1px; }
+.chapter-nav { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.chapter-nav h3 { font-size: 26px; text-align: center; text-wrap: balance; }
+.nav-btn { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; color: var(--ink); background: var(--surface); border: 0; border-radius: 50%; box-shadow: 0 3px 0 var(--edge); cursor: pointer; }
+.nav-btn svg { width: 22px; height: 22px; }
+.nav-btn:disabled { opacity: 0.3; cursor: default; }
+/* The mechanics of a chapter, as small pictures */
+.tags { display: flex; justify-content: center; gap: 8px; min-height: 32px; }
+.tag { display: grid; place-items: center; width: 32px; height: 32px; background: var(--surface); border-radius: 10px; box-shadow: 0 3px 0 var(--edge); }
+.tag svg { width: 20px; height: 20px; }
+/* The six levels of a chapter, on a path that winds from one to the next. Positions are percentages of the box. */
+.path { position: relative; width: 100%; height: clamp(230px, 40dvh, 330px); }
+.path-line { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.path-line polyline { fill: none; stroke: var(--ink-2); stroke-opacity: 0.35; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.lvl { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; width: 58px; height: 58px; padding: 0; color: var(--ink); background: var(--surface); border: 0; border-radius: 50%; box-shadow: 0 4px 0 var(--edge); cursor: pointer; }
+.lvl b { font-family: 'Secular One', 'Assistant', sans-serif; font-weight: 400; font-size: 24px; line-height: 1; }
+.lvl .s { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 5px; font-size: 11px; line-height: 1; letter-spacing: 1px; color: var(--ink-2); white-space: nowrap; }
+.lvl.done { color: var(--on-ink); background: var(--wall); }
+.lvl.done .s { color: var(--ink); }
+.lvl.cur { color: var(--on-sun); background: var(--sun); box-shadow: 0 0 0 5px var(--surface), 0 4px 0 var(--edge); animation: pulse 1.6s ease-in-out infinite; }
+
+/* Settings: short labels, one row of choices each */
+.field { display: grid; gap: 8px; }
+.field-label { font-weight: 700; font-size: 15px; }
+.seg-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.seg-row.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.seg { min-height: 48px; font: 700 15px/1.1 'Assistant', system-ui, sans-serif; color: var(--ink); background: var(--surface); border: 0; border-radius: 16px; box-shadow: 0 4px 0 var(--edge); cursor: pointer; }
+.seg[aria-pressed="true"] { color: var(--on-sun); background: var(--sun); }
+.btn.danger[data-armed] { color: #ffffff; background: var(--vermilion); }
+
+/* Statistics: a small grid of figures; an odd last figure takes the whole row */
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; }
+.stats > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+.stat-cell { display: grid; min-width: 0; padding: 8px 12px; background: var(--surface); border-radius: 16px; box-shadow: 0 3px 0 var(--edge); }
+.stat-cell dt { font-size: 12px; line-height: 1.3; color: var(--ink-2); }
+.stat-cell dd { margin: 0; font-family: 'Secular One', 'Assistant', sans-serif; font-size: 24px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+
+/* The result as text, for the fallback when the clipboard is refused */
+.copy-text { width: 100%; min-height: 64px; padding: 8px; font: inherit; font-size: 14px; line-height: 1.4; color: var(--ink); background: var(--paper); border: 0; border-radius: 14px; resize: none; direction: ltr; user-select: text; -webkit-user-select: text; }
+
+/* The chapter map: a picture the player can keep */
+.map-frame { display: grid; justify-items: center; align-content: start; gap: 12px; min-height: 0; }
+.map-img { display: block; width: min(100%, 56dvh, 420px); height: auto; aspect-ratio: 1; border-radius: 22px; background: var(--surface); }
+
+/* Motion. Each one answers an action; reduced motion turns them all off. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* A short portrait screen gets a smaller joystick, so the world keeps its room */
+@media (orientation: portrait) and (max-height: 700px) {
+  .joy { --h: 56px; --gw: 64px; --gh: 44px; }
+}
+
+/* Phones held sideways: the world on the left, the readout and controls in a column on the right */
+@media (orientation: landscape) and (max-height: 560px) {
+  body { padding-block: 6px 8px; }
+  .app { max-width: 840px; }
+  #play { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); grid-template-rows: auto 1fr; column-gap: 24px; }
+  .board-wrap { grid-column: 1; grid-row: 1 / -1; }
+  .panel-top, .panel-bottom { display: flex; flex-direction: column; }
+  .panel-top { grid-column: 2; grid-row: 1; }
+  .panel-bottom { grid-column: 2; grid-row: 2; justify-content: flex-end; }
+  .kicker { margin-top: 6px; font-size: 26px; }
+  .dash { margin: 8px 0 10px; padding-block: 6px; }
+  .num { font-size: 28px; }
+  .msg { margin-top: 6px; }
+  .joy { --h: 56px; --gw: 64px; --gh: 44px; max-width: 260px; }
+  .tools { margin-top: 8px; }
+  .btn { min-height: 44px; }
+  .path { height: 200px; }
+  .sheet-head, .sheet-body { max-width: 840px; }
+  .sheet-body.levels-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); column-gap: 24px; }
+  .sheet-body.settings-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 24px; }
+}
+</style>
+<div class="app">
+  <header class="top">
+    <h1 class="brand"><span class="sr-only">Turnfall</span></h1>
+    <div class="top-tools">
+      <button class="icon-btn" id="open-daily" type="button" aria-label="Daily puzzle">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+      </button>
+      <button class="icon-btn" id="open-levels" type="button" aria-label="Levels" aria-expanded="false" aria-controls="levels">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2.5"></circle><circle cx="18" cy="12" r="2.5"></circle><circle cx="6" cy="18" r="2.5"></circle><path d="M8.5 6.5h4a3 3 0 0 1 3 3v0a3 3 0 0 0 3 3M6 8.5v7"></path></svg>
+      </button>
+      <button class="icon-btn" id="open-settings" type="button" aria-label="Settings" aria-expanded="false" aria-controls="settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 16.9l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="play">
+    <div class="panel-top">
+      <p class="kicker" id="kicker"></p>
+      <div class="dash">
+        <div class="stat" id="turns-card"><span class="label">Turns</span><span class="num" id="turns">0</span></div>
+        <div class="dial" aria-hidden="true"><div class="needle" id="needle"></div></div>
+        <div class="stat alt"><span class="label">Goal</span><span class="num" id="par"></span></div>
+      </div>
+    </div>
+
+    <div class="board-wrap">
+      <div class="board" id="board-card">
+        <div id="stage">
+          <svg id="board" viewBox="0 0 5 5" role="img" aria-label="The board. The ball falls down, and the hole is the goal.">
+            <g id="world"></g>
+            <g id="fx"></g>
+            <g id="ball"><g id="ball-body"><circle r="0.3" class="ball"></circle><circle cx="-0.1" cy="-0.1" r="0.07" class="shine"></circle></g></g>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-bottom">
+      <p class="msg" id="msg" aria-live="polite"></p>
+      <div class="joy" id="joy" role="group" aria-label="Joystick to turn. Push it left or right. The arrow keys work too.">
+        <svg class="joy-arrow l" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+        <svg class="joy-arrow r" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
+        <div class="joy-knob" id="joy-knob"></div>
+      </div>
+      <div class="tools">
+        <button class="btn" id="undo" type="button" aria-label="Undo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"></path></svg>
+          <b class="n" id="undo-label">2</b>
+        </button>
+        <button class="btn" id="hint" type="button" aria-label="Hint">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"></path></svg>
+          <b class="n" id="hint-label">3</b>
+        </button>
+        <button class="btn" id="reset" type="button" aria-label="Restart">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="win" id="win" hidden>
+      <div class="win-card" role="dialog" aria-modal="true" aria-labelledby="win-text">
+        <div class="confetti" id="confetti" aria-hidden="true"></div>
+        <p class="stars" id="win-stars"></p>
+        <p class="win-title" id="win-text"></p>
+        <textarea class="copy-text" id="copy-text" readonly hidden aria-label="Result text, to copy"></textarea>
+        <div class="tools">
+          <button class="btn solid" id="next" type="button">Next</button>
+          <button class="btn" id="win-map" type="button" hidden aria-label="Chapter map">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"></path><path d="M9 4v14M15 6v14"></path></svg>
+          </button>
+          <button class="btn" id="win-levels" type="button" aria-label="Levels">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2.5"></circle><circle cx="18" cy="12" r="2.5"></circle><circle cx="6" cy="18" r="2.5"></circle><path d="M8.5 6.5h4a3 3 0 0 1 3 3v0a3 3 0 0 0 3 3M6 8.5v7"></path></svg>
+          </button>
+          <button class="btn" id="copy" type="button" aria-label="Copy result">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3"></rect><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path></svg>
+            <span>Copy</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <section id="levels" class="sheet" aria-labelledby="levels-title" hidden>
+    <div class="sheet-head">
+      <h2 id="levels-title">Levels</h2>
+      <button class="icon-btn" id="levels-close" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+      </button>
+    </div>
+    <div class="sheet-body levels-body">
+      <div class="col">
+        <button class="daily-card" id="daily-card" type="button">
+          <span class="d-title">Daily puzzle</span>
+          <span class="d-stars" id="daily-stars"></span>
+          <span class="d-sub" id="daily-sub"></span>
+        </button>
+        <div class="chapter-nav">
+          <button class="nav-btn" id="ch-prev" type="button" aria-label="Previous chapter">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"></path></svg>
+          </button>
+          <h3 id="chapter-name"></h3>
+          <button class="nav-btn" id="ch-next" type="button" aria-label="Next chapter">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg>
+          </button>
+        </div>
+        <div class="tags" id="chapter-tags" aria-hidden="true"></div>
+      </div>
+      <div class="col">
+        <div class="path levels-grid" id="levels-grid"></div>
+        <button class="btn" id="chapter-map" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"></path><path d="M9 4v14M15 6v14"></path></svg>
+          <span>Map</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section id="settings" class="sheet" aria-labelledby="settings-title" hidden>
+    <div class="sheet-head">
+      <h2 id="settings-title">Settings</h2>
+      <button class="icon-btn" id="settings-close" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+      </button>
+    </div>
+    <div class="sheet-body settings-body">
+      <div class="col">
+        <div class="field">
+          <span class="field-label">Speed</span>
+          <div class="seg-row">
+            <button class="seg" id="speed-normal" type="button" aria-pressed="true">Normal</button>
+            <button class="seg" id="speed-fast" type="button" aria-pressed="false">Fast</button>
+            <button class="seg" id="speed-off" type="button" aria-pressed="false">Off</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-label">Theme</span>
+          <div class="seg-row">
+            <button class="seg" id="theme-auto" type="button" aria-pressed="true">Auto</button>
+            <button class="seg" id="theme-light" type="button" aria-pressed="false">Light</button>
+            <button class="seg" id="theme-dark" type="button" aria-pressed="false">Dark</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-label">Feedback</span>
+          <div class="seg-row two">
+            <button class="seg" id="sound-toggle" type="button" aria-pressed="false">Sound</button>
+            <button class="seg" id="vibe-toggle" type="button" aria-pressed="true">Vibration</button>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <dl class="stats" id="stats"></dl>
+        <button class="btn danger" id="reset-progress" type="button">Reset</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="map" class="sheet over-map" aria-labelledby="map-title" hidden>
+    <div class="sheet-head">
+      <h2 id="map-title">Chapter map</h2>
+      <button class="icon-btn" id="map-close" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+      </button>
+    </div>
+    <div class="map-frame">
+      <img class="map-img" id="map-img" alt="Map of the finished chapter">
+      <p class="msg" id="map-note">Long-press the picture to save it.</p>
+    </div>
+  </section>
+</div>
+<script>
+(function () {
+  'use strict';
+  document.documentElement.lang = 'en';
+  document.documentElement.dir = 'ltr';
+  var NS = 'http://www.w3.org/2000/svg';
+  var KEY = 'world-best-v2', SKEY = 'world-settings-v2';
+  var TURN_MS = 420, STEP_MS = 110;
+  var SPEEDS = { normal: 1, fast: 0.5, off: 0 };
+  // The first nine chapters are designed by hand (LEVELS, below). Past them the chapters go on for ever.
+  // Each chapter shows its mechanics as small pictures, not as sentences.
+  var CHAPTERS = [
+    { name: 'Falling', tags: ['wall'] },
+    { name: 'Mud', tags: ['mud'] },
+    { name: 'Pits', tags: ['pit'] },
+    { name: 'Mixed', tags: ['mud', 'pit'] },
+    { name: 'Long Route', tags: ['wall', 'mud', 'pit'] },
+    { name: 'Whole World', tags: ['mud', 'pit', 'arrow', 'spring'] },
+    { name: 'Arrows', tags: ['arrow'] },
+    { name: 'Springs', tags: ['spring'] },
+    { name: 'All Together', tags: ['mud', 'pit', 'arrow', 'spring'] }
+  ];
+  var ALL_TAGS = ['mud', 'pit', 'arrow', 'spring'];
+  var TAG_SVG = {
+    wall: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4" style="fill:var(--wall)"></rect></svg>',
+    mud: '<svg viewBox="0 0 24 24"><circle cx="9" cy="10" r="4.5" style="fill:var(--mud)"></circle><circle cx="16" cy="15" r="3.5" style="fill:var(--mud)"></circle></svg>',
+    pit: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" style="fill:var(--pit)"></circle><circle cx="12" cy="12" r="3.5" style="fill:var(--pit-ink)"></circle></svg>',
+    arrow: '<svg viewBox="0 0 24 24"><path d="M12 20 4.5 9h15z" style="fill:var(--ink)"></path></svg>',
+    spring: '<svg viewBox="0 0 24 24"><path d="M3 12l3-4 3 8 3-8 3 8 3-8 3 4" style="fill:none;stroke:var(--ink);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"></path></svg>'
+  };
+  // Short words only. The preview words say where the ball would stop.
+  var MSG = {
+    noMove: 'No movement',
+    pit: 'Fell in a pit',
+    mud: 'Stuck in mud',
+    previewWin: 'Into the hole!',
+    previewPit: 'Into a pit!',
+    previewMud: 'Mud',
+    previewWall: 'Wall',
+    previewNoMove: 'Stays put',
+    hintNone: 'No path',
+    hintOut: 'No hints left',
+    copied: 'Copied!',
+    reset: 'Oops',
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var svg = $('board'), stage = $('stage'), world = $('world'), fx = $('fx'), ballEl = $('ball'), ballBody = $('ball-body');
+  var needle = $('needle'), boardCard = $('board-card'), goalEl = null;
+  var mode = 'campaign', level = 0, sheetChapter = 0, dayKey = '', LV = null, mapFrom = null;
+  var N = 0, grid = null, start = null;
+  var pos = { x: 0, y: 0 }, g = 0, th = 0, turns = 0, hist = [], undoLeft = 2, hintsLeft = 3;
+  var busy = false, won = false, failed = false;
+  var progress = loadProgress(), settings = loadSettings(), dailyCache = {}, extraLevels = {};
+
+  // Progress and settings live in this browser only. Storage can be blocked, so every access is guarded.
+  function loadProgress() {
+    try {
+      var p = JSON.parse(localStorage.getItem(KEY));
+      if (p && typeof p === 'object') return { best: p.best || {}, daily: p.daily || {} };
+    } catch (e) { /* start empty */ }
+    return { best: {}, daily: {} };
+  }
+  function saveProgress() {
+    try { localStorage.setItem(KEY, JSON.stringify(progress)); } catch (e) { /* the game works without storage */ }
+  }
+  function loadSettings() {
+    var s = { speed: 'normal', sound: false, vibe: true, theme: 'auto' };
+    try {
+      var o = JSON.parse(localStorage.getItem(SKEY));
+      if (o && SPEEDS.hasOwnProperty(o.speed)) s.speed = o.speed;
+      if (o && typeof o.sound === 'boolean') s.sound = o.sound;
+      if (o && typeof o.vibe === 'boolean') s.vibe = o.vibe;
+      if (o && (o.theme === 'light' || o.theme === 'dark')) s.theme = o.theme;
+    } catch (e) { /* defaults */ }
+    return s;
+  }
+  function saveSettings() {
+    try { localStorage.setItem(SKEY, JSON.stringify(settings)); } catch (e) { /* defaults next time */ }
+  }
+
+  function el(name, attrs, parent) {
+    var e = document.createElementNS(NS, name);
+    Object.keys(attrs).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    parent.appendChild(e);
+    return e;
+  }
+  function msg(t) { $('msg').textContent = t; }
+  // Plays a CSS animation again by removing the class, reflowing, and adding it back.
+  function bump(node) { node.classList.remove('bump'); void node.offsetWidth; node.classList.add('bump'); }
+  // Sounds are made here, not played from files, and only when the sound setting is on. A sound starts from a press,
+  // so the browser lets it play. Any failure is ignored: the game works without sound.
+  var audio = null;
+  function tone(freq, dur, type, vol, delay) {
+    if (!settings.sound) return;
+    try {
+      if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === 'suspended') audio.resume();
+      var t0 = audio.currentTime + (delay || 0), o = audio.createOscillator(), gain = audio.createGain();
+      o.type = type || 'sine'; o.frequency.value = freq;
+      gain.gain.setValueAtTime(vol || 0.05, t0);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(gain); gain.connect(audio.destination);
+      o.start(t0); o.stop(t0 + dur + 0.02);
+    } catch (e) { /* no sound here */ }
+  }
+  // A short buzz on a phone that has a motor for it. Turned off in the settings.
+  function buzz(pattern) {
+    if (!settings.vibe) return;
+    try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) { /* none here */ }
+  }
+  function speed() { return SPEEDS[settings.speed]; }
+  function chapterOf(i) { return Math.floor(i / 6); }
+  // Chapters past the nine designed ones are only numbered.
+  function chapterInfo(ci) {
+    return ci < CHAPTERS.length ? CHAPTERS[ci] : { name: 'Chapter ' + (ci + 1), tags: ALL_TAGS };
+  }
+  function chapterTitle(ci) {
+    return ci < CHAPTERS.length ? 'Chapter ' + (ci + 1) + ': ' + CHAPTERS[ci].name : 'Chapter ' + (ci + 1);
+  }
+  function chapterDone(ci) {
+    for (var k = 0; k < 6; k++) if (!progress.best[ci * 6 + k]) return false;
+    return true;
+  }
+  function starText(n) { return '★★★'.slice(0, n) + '☆☆☆'.slice(0, 3 - n); }
+  function pad(v) { return (v < 10 ? '0' : '') + v; }
+  // The day is the UTC date, so everyone has the same daily puzzle at the same moment.
+  function dateKey(d) { return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()); }
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function dayLabel(key) { var p = key.split('-'); return MONTHS[+p[1] - 1] + ' ' + (+p[2]); }
+  function todayKey() { return dateKey(new Date()); }
+  function dailyFor(key) {
+    if (!dailyCache[key]) dailyCache[key] = CORE.dailyLevel(key);
+    return dailyCache[key];
+  }
+  // The level at index i. The first 54 are designed (LEVELS); the rest are made from their index, so they match for everyone.
+  function levelAt(i) {
+    if (i < LEVELS.length) return LEVELS[i];
+    if (!extraLevels[i]) extraLevels[i] = CORE.endlessLevel(i) || LEVELS[i % LEVELS.length];
+    return extraLevels[i];
+  }
+  // The line under the board is empty while the ball rests. It only says something when the ball has just fallen in.
+  function restMsg() {
+    return failed ? MSG.pit : '';
+  }
+
+  function setBoard(rows) {
+    var P = CORE.parse(rows);
+    N = P.n; grid = P.grid; start = P.start;
+  }
+  function drawWorld() {
+    while (world.firstChild) world.removeChild(world.firstChild);
+    svg.setAttribute('viewBox', '0 0 ' + N + ' ' + N);
+    goalEl = null;
+    for (var y = 0; y < N; y++) {
+      for (var x = 0; x < N; x++) {
+        var c = grid[y][x];
+        if (c === 'W') {
+          el('rect', { x: x + 0.04, y: y + 0.1, width: 0.92, height: 0.9, rx: 0.14, class: 'lip' }, world);
+          el('rect', { x: x + 0.04, y: y + 0.03, width: 0.92, height: 0.9, rx: 0.14, class: 'wall' }, world);
+          continue;
+        }
+        el('rect', { x: x + 0.05, y: y + 0.05, width: 0.9, height: 0.9, rx: 0.14, class: c === 'M' ? 'tile mud' : c === 'P' ? 'tile pit' : 'tile' }, world);
+        if (c === 'M') {
+          el('circle', { cx: x + 0.3, cy: y + 0.36, r: 0.05, class: 'mudspot' }, world);
+          el('circle', { cx: x + 0.66, cy: y + 0.6, r: 0.04, class: 'mudspot' }, world);
+          el('circle', { cx: x + 0.44, cy: y + 0.74, r: 0.035, class: 'mudspot' }, world);
+        }
+        if (c.charAt(0) === 'A') drawArrow(x, y, +c.charAt(1));
+        if (c === 'Z') drawSpring(x, y);
+        if (c === 'P') el('circle', { cx: x + 0.5, cy: y + 0.5, r: 0.26, class: 'pitdot' }, world);
+        if (c === 'H') {
+          el('circle', { cx: x + 0.5, cy: y + 0.5, r: 0.3, class: 'hole' }, world);
+          goalEl = el('circle', { cx: x + 0.5, cy: y + 0.5, r: 0.38, class: 'goal' }, world);
+        }
+      }
+    }
+  }
+  // An arrow: a triangle pointing where a falling ball is sent. A spring: a zigzag that sends the ball back.
+  function drawArrow(x, y, d) {
+    var cx = x + 0.5, cy = y + 0.5, dx = CORE.DX[d], dy = CORE.DY[d], px = -dy, py = dx;
+    var pts = [[cx + 0.3 * dx, cy + 0.3 * dy], [cx - 0.12 * dx + 0.2 * px, cy - 0.12 * dy + 0.2 * py], [cx - 0.12 * dx - 0.2 * px, cy - 0.12 * dy - 0.2 * py]];
+    el('polygon', { points: pts.map(function (p) { return p[0].toFixed(3) + ',' + p[1].toFixed(3); }).join(' '), class: 'arrow' }, world);
+  }
+  function drawSpring(x, y) {
+    var pts = [];
+    for (var k = 0; k <= 6; k++) {
+      var dy = k === 0 || k === 6 ? 0 : (k % 2 ? -0.14 : 0.14);
+      pts.push((x + 0.2 + k * 0.1).toFixed(3) + ',' + (y + 0.5 + dy).toFixed(3));
+    }
+    el('polyline', { points: pts.join(' '), class: 'spring' }, world);
+  }
+  function placeBall(x, y) {
+    ballEl.setAttribute('transform', 'translate(' + (x + 0.5) + ',' + (y + 0.5) + ')');
+  }
+  function restClass() { return grid[pos.y][pos.x] === 'M' ? 'mud' : ''; }
+
+  // The world and the dial turn together; the dial's red dot always marks where the world's bottom is now.
+  function showAngle(deg) {
+    stage.style.transform = 'rotate(' + deg + 'deg)';
+    needle.style.transform = 'rotate(' + deg + 'deg)';
+  }
+  function setRotation(deg, instant) {
+    if (instant) { stage.style.transition = 'none'; needle.style.transition = 'none'; }
+    showAngle(deg);
+    if (instant) { void stage.offsetWidth; stage.style.transition = ''; needle.style.transition = ''; }
+  }
+  function setTurnSpeed() {
+    document.documentElement.style.setProperty('--turn', Math.round(TURN_MS * speed()) + 'ms');
+  }
+
+  // The path the ball would take, drawn in the world's own coordinates, with where it would stop.
+  function clearFx() { while (fx.firstChild) fx.removeChild(fx.firstChild); }
+  function showFx(r) {
+    clearFx();
+    if (r.path.length) {
+      var pts = [[pos.x, pos.y]].concat(r.path);
+      el('path', {
+        class: 'trail',
+        d: pts.map(function (p, i) { return (i ? 'L' : 'M') + (p[0] + 0.5) + ' ' + (p[1] + 0.5); }).join(' ')
+      }, fx);
+    }
+    el('circle', { cx: r.x + 0.5, cy: r.y + 0.5, r: 0.3, class: 'ghost ' + r.end }, fx);
+  }
+  function previewFor(dir) {
+    if (busy || won || failed) return;
+    var r = CORE.slide(grid, N, pos.x, pos.y, (g + dir + 4) % 4);
+    showFx(r);
+    msg(!r.moved ? MSG.previewNoMove : r.end === 'win' ? MSG.previewWin : r.end === 'pit' ? MSG.previewPit : r.end === 'mud' ? MSG.previewMud : MSG.previewWall);
+  }
+  function clearPreview() {
+    clearFx();
+    if (!busy && !won) msg(restMsg());
+  }
+
+  // Moves the ball cell by cell along path. At speed "off" it jumps.
+  function walk(path, done) {
+    var f = speed(), L = path.length, last = path[L - 1];
+    if (!f) { placeBall(last[0], last[1]); done(); return; }
+    var pts = [[pos.x, pos.y]].concat(path), dur = STEP_MS * f * L, t0 = null;
+    requestAnimationFrame(function frame(ts) {
+      if (t0 === null) t0 = ts;
+      var k = Math.min(1, (ts - t0) / dur), s = k * L;
+      var i = Math.min(L - 1, Math.floor(s)), q = s - i;
+      var a = pts[i], b = pts[i + 1];
+      placeBall(a[0] + (b[0] - a[0]) * q, a[1] + (b[1] - a[1]) * q);
+      if (k < 1) requestAnimationFrame(frame); else done();
+    });
+  }
+  function land() {
+    ballBody.setAttribute('class', 'land');
+    setTimeout(function () { if (ballBody.getAttribute('class') === 'land') ballBody.setAttribute('class', ''); }, 400);
+  }
+  function shake() {
+    boardCard.classList.remove('shake');
+    void boardCard.offsetWidth;
+    boardCard.classList.add('shake');
+  }
+// Rules of "Turnfall", shared by the page (embedded as text) and by the build and test scripts (Node).
+// The ball always falls toward the bottom of the screen. A turn rotates the world, so the gravity index g
+// moves: 0 down, 1 right, 2 up, 3 left. 'R' (turn right, clockwise) adds 1, 'L' (turn left) adds 3.
+// Rows: '#' wall, '.' floor, 'S' ball start, 'O' hole, 'm' mud, 'p' pit,
+// 'v' '>' '^' '<' arrows (a ball that enters one falls in that arrow's direction), 'z' spring (it sends the ball back).
+var CORE = (function () {
+  'use strict';
+  var DX = [0, 1, 0, -1], DY = [1, 0, -1, 0];
+  var ARROW_ROW = { 'v': 0, '>': 1, '^': 2, '<': 3 };   // row character -> direction
+  var ARROW_CHARS = ['v', '>', '^', '<'];              // direction -> row character
+  var ENDLESS_FROM = 54;   // the levels from this index on are made from their index, not designed
+  var MAX_BOUNCES = 4;     // a ball sent back by springs this many times stops on the spring
+
+  // Cell codes after parse: 'W' wall, 'F' floor, 'H' hole, 'M' mud, 'P' pit, 'Z' spring, 'A0' to 'A3' arrows (the direction).
+  // opts.mud, opts.pits, opts.arrows, opts.springs === false turn that mechanic into plain floor (used to test whether it matters).
+  function parse(rows, opts) {
+    var keepMud = !opts || opts.mud !== false;
+    var keepPits = !opts || opts.pits !== false;
+    var keepArrows = !opts || opts.arrows !== false;
+    var keepSprings = !opts || opts.springs !== false;
+    var n = rows.length, grid = [], start = null;
+    for (var y = 0; y < n; y++) {
+      var line = [];
+      for (var x = 0; x < n; x++) {
+        var c = rows[y].charAt(x), k = 'F';
+        if (c === '#') k = 'W';
+        else if (c === 'O') k = 'H';
+        else if (c === 'm') k = keepMud ? 'M' : 'F';
+        else if (c === 'p') k = keepPits ? 'P' : 'F';
+        else if (c === 'z') k = keepSprings ? 'Z' : 'F';
+        else if (ARROW_ROW.hasOwnProperty(c)) k = keepArrows ? 'A' + ARROW_ROW[c] : 'F';
+        else if (c === 'S') start = [x, y];
+        line.push(k);
+      }
+      grid.push(line);
+    }
+    return { n: n, grid: grid, start: start };
+  }
+
+  // The ball slides in the direction of gravity until something stops it. end is 'win' (it reaches the hole),
+  // 'pit' (it falls into a pit), 'mud' (it stops on mud) or 'wall' (a wall, the edge, or the springs' limit stops it).
+  // An arrow turns the ball to its own direction; a spring sends it back the way it came.
+  // moved says whether it moved at all; path lists the cells it passed, in order; loop is set when the path runs too long.
+  function slide(grid, n, x, y, g) {
+    var path = [], bounces = 0, limit = 4 * n * n + 16;
+    for (;;) {
+      var nx = x + DX[g], ny = y + DY[g];
+      if (nx < 0 || ny < 0 || nx >= n || ny >= n || grid[ny][nx] === 'W') {
+        return { x: x, y: y, end: 'wall', moved: path.length > 0, path: path };
+      }
+      x = nx; y = ny;
+      path.push([x, y]);
+      if (path.length > limit) return { x: x, y: y, end: 'wall', moved: true, path: path, loop: true };
+      var k = grid[y][x];
+      if (k === 'H') return { x: x, y: y, end: 'win', moved: true, path: path };
+      if (k === 'P') return { x: x, y: y, end: 'pit', moved: true, path: path };
+      if (k === 'M') return { x: x, y: y, end: 'mud', moved: true, path: path };
+      if (k === 'Z') {
+        if (++bounces > MAX_BOUNCES) return { x: x, y: y, end: 'wall', moved: true, path: path };
+        g = (g + 2) % 4;
+      } else if (k.charAt(0) === 'A') {
+        g = +k.charAt(1);
+      }
+    }
+  }
+
+  // Breadth-first search over (cell, gravity) from one state. strict: a turn that does not move the ball is not allowed.
+  // Returns { par, moves } for the fewest turns that reach the hole within maxDepth, or null.
+  function search(grid, n, x0, y0, g0, strict, maxDepth) {
+    var key = function (x, y, g) { return (y * n + x) * 4 + g; };
+    var from = {};
+    from[key(x0, y0, g0)] = null;
+    var frontier = [[x0, y0, g0]];
+    for (var depth = 1; depth <= maxDepth && frontier.length; depth++) {
+      var next = [];
+      for (var i = 0; i < frontier.length; i++) {
+        var st = frontier[i], x = st[0], y = st[1], g = st[2];
+        for (var t = 0; t < 2; t++) {
+          var ch = t === 0 ? 'R' : 'L', ng = (g + (t === 0 ? 1 : 3)) % 4;
+          var r = slide(grid, n, x, y, ng);
+          if (strict && !r.moved) continue;
+          if (r.end === 'pit') continue;
+          if (r.end === 'win') {
+            var moves = ch, cur = key(x, y, g);
+            while (from[cur]) { moves = from[cur].ch + moves; cur = from[cur].p; }
+            return { par: depth, moves: moves };
+          }
+          var nk = key(r.x, r.y, ng);
+          if (!(nk in from)) { from[nk] = { p: key(x, y, g), ch: ch }; next.push([r.x, r.y, ng]); }
+        }
+      }
+      frontier = next;
+    }
+    return null;
+  }
+
+  // Breadth-first search from the start of a level (the first fall, gravity down). Returns { par, moves } or null.
+  function solve(grid, n, start, strict, maxDepth) {
+    var s0 = slide(grid, n, start[0], start[1], 0);
+    if (s0.end === 'win' || s0.end === 'pit') return null;
+    return search(grid, n, s0.x, s0.y, 0, strict, maxDepth);
+  }
+
+  // The next turn on a fewest-turn solution from where the ball is now: 'R', 'L', or null when no way on is left.
+  // A turn that moves the ball is preferred; one that does not move it is used only when nothing else works.
+  function hint(grid, n, x, y, g) {
+    var r = search(grid, n, x, y, g, true, 16) || search(grid, n, x, y, g, false, 16);
+    return r ? r.moves.charAt(0) : null;
+  }
+
+  // A board is kept when its fewest turns is exactly T, both allowing and forbidding wasted turns.
+  // Returns the optimal turns as a string of 'R' and 'L' (no wasted turns), or null.
+  function evaluate(rows, T) {
+    var P = parse(rows);
+    if (!P.start) return null;
+    var free = solve(P.grid, P.n, P.start, false, T);
+    if (!free || free.par !== T) return null;
+    var strict = solve(P.grid, P.n, P.start, true, T);
+    if (!strict || strict.par !== T) return null;
+    return strict.moves;
+  }
+
+  // Fewest turns with the given mechanics; 99 when the level cannot be solved within 16 turns.
+  function parOf(rows, opts) {
+    var P = parse(rows, opts);
+    if (!P.start) return 99;
+    var r = solve(P.grid, P.n, P.start, false, 16);
+    return r ? r.par : 99;
+  }
+
+  // need: 'none'; one mechanic name ('mud', 'pits', 'arrows', 'springs'); 'any' (at least one of them); or a list of
+  // names (each one). A mechanic is needed when removing it changes the fewest turns.
+  function meets(rows, T, need) {
+    if (need === 'none') return true;
+    var list = need === 'any' ? ['mud', 'pits', 'arrows', 'springs'] : typeof need === 'string' ? [need] : need;
+    var found = list.map(function (name) {
+      var off = {}; off[name] = false;
+      return parOf(rows, off) !== T;
+    });
+    return need === 'any' ? found.some(Boolean) : found.every(Boolean);
+  }
+
+  // Can the ball run on for ever? Only arrows can make such a loop; a board that can is not used.
+  function hasLoop(grid, n, start) {
+    var s0 = slide(grid, n, start[0], start[1], 0);
+    if (s0.loop) return true;
+    if (s0.end === 'win' || s0.end === 'pit') return false;
+    var key = function (x, y, g) { return (y * n + x) * 4 + g; };
+    var seen = {}, stack = [[s0.x, s0.y, 0]];
+    seen[key(s0.x, s0.y, 0)] = true;
+    while (stack.length) {
+      var st = stack.pop(), x = st[0], y = st[1], g = st[2];
+      for (var t = 0; t < 2; t++) {
+        var ng = (g + (t === 0 ? 1 : 3)) % 4;
+        var r = slide(grid, n, x, y, ng);
+        if (r.loop) return true;
+        if (r.end === 'win' || r.end === 'pit') continue;
+        var nk = key(r.x, r.y, ng);
+        if (!seen[nk]) { seen[nk] = true; stack.push([r.x, r.y, ng]); }
+      }
+    }
+    return false;
+  }
+  function looping(rows) {
+    if (!/[v<>^]/.test(rows.join(''))) return false;
+    var P = parse(rows);
+    return P.start ? hasLoop(P.grid, P.n, P.start) : false;
+  }
+
+  // Seeded random numbers (mulberry32), so the same seed always gives the same levels.
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, a | 1);
+      t = t + Math.imul(t ^ t >>> 7, t | 61) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  // A random board: walls, then the start and the hole, then mud, pits, arrows and springs on the remaining floor.
+  // A spec without arrows or springs draws exactly the same numbers as before, so the old boards do not change.
+  function randomRows(rnd, spec) {
+    var n = spec.n, cells = [], floors = [];
+    var arrows = spec.arrows || 0, springs = spec.springs || 0;
+    for (var y = 0; y < n; y++) {
+      var row = [];
+      for (var x = 0; x < n; x++) {
+        if (rnd() < spec.walls) row.push('#');
+        else { row.push('.'); floors.push([x, y]); }
+      }
+      cells.push(row);
+    }
+    if (floors.length < 8) return null;
+    var pick = function () { return floors[Math.floor(rnd() * floors.length)]; };
+    var s = pick(), o = pick(), guard = 0;
+    while (o[0] === s[0] && o[1] === s[1] && guard++ < 50) o = pick();
+    if (o[0] === s[0] && o[1] === s[1]) return null;
+    cells[s[1]][s[0]] = 'S';
+    cells[o[1]][o[0]] = 'O';
+    for (var j = 0; j < floors.length; j++) {
+      var c = floors[j];
+      if (cells[c[1]][c[0]] !== '.') continue;
+      var r = rnd();
+      if (r < spec.pits) cells[c[1]][c[0]] = 'p';
+      else if (r < spec.pits + spec.mud) cells[c[1]][c[0]] = 'm';
+      else if (r < spec.pits + spec.mud + arrows) cells[c[1]][c[0]] = ARROW_CHARS[Math.floor(rnd() * 4)];
+      else if (r < spec.pits + spec.mud + arrows + springs) cells[c[1]][c[0]] = 'z';
+    }
+    return cells.map(function (row) { return row.join(''); });
+  }
+
+  // Tries random boards until one fits: exactly spec.par turns, the mechanic needed, and not already in spec.avoid.
+  // Returns { n, rows, par, moves, tries } or null when the tries run out.
+  function generate(spec) {
+    var avoid = spec.avoid || null;
+    for (var tries = 0; tries < spec.tries; tries++) {
+      var rows = randomRows(spec.rnd, spec);
+      if (!rows) continue;
+      var k = rows.join('/');
+      if (avoid && avoid[k]) continue;
+      var moves = evaluate(rows, spec.par);
+      if (!moves || !meets(rows, spec.par, spec.need) || looping(rows)) continue;
+      if (avoid) avoid[k] = true;
+      return { n: spec.n, rows: rows, par: spec.par, moves: moves, tries: tries + 1 };
+    }
+    return null;
+  }
+
+  // A board whose fewest turns lie between spec.lo and spec.hi, the same with and without wasted turns.
+  // Returns { n, rows, par, moves, tries } or null when the tries run out.
+  function fit(spec) {
+    for (var tries = 0; tries < spec.tries; tries++) {
+      var rows = randomRows(spec.rnd, spec);
+      if (!rows) continue;
+      var P = parse(rows);
+      if (!P.start) continue;
+      var free = solve(P.grid, P.n, P.start, false, spec.hi);
+      if (!free || free.par < spec.lo) continue;
+      var strict = solve(P.grid, P.n, P.start, true, spec.hi);
+      if (!strict || strict.par !== free.par) continue;
+      if (!meets(rows, free.par, spec.need) || looping(rows)) continue;
+      return { n: spec.n, rows: rows, par: free.par, moves: strict.moves, tries: tries + 1 };
+    }
+    return null;
+  }
+
+  // Level i (0-based) from ENDLESS_FROM on, so the campaign never ends. Every level is found from its own seed, so a
+  // given level is the same board for everyone. Chapters of six: the board grows (7, then 8, then 9 squares),
+  // the fewest turns rise from eight to twelve, and arrows and springs become more common chapter by chapter.
+  function endlessLevel(i) {
+    var j = i - ENDLESS_FROM, t = Math.floor(j / 6), k = j % 6;
+    var n = t < 4 ? 7 : t < 12 ? 8 : 9;
+    var base = Math.min(12, 8 + Math.floor(t / 3));
+    var lo = Math.min(12, base + (k >= 3 ? 1 : 0));
+    var seed = 20261020 + j * 7919;
+    var arrows = Math.min(0.1, 0.03 + t * 0.01), springs = Math.min(0.09, 0.02 + t * 0.008);
+    for (var attempt = 0; attempt < 3; attempt++) {
+      var L = fit({ n: n, lo: lo, hi: lo + 1, walls: 0.2, mud: 0.1, pits: 0.08, arrows: arrows, springs: springs, need: 'any', tries: 20000, rnd: mulberry32(seed + attempt * 1000003) });
+      if (L) return L;
+    }
+    // Not found in three tries (very rare): a wider window, then a small board that always fits.
+    return fit({ n: n, lo: Math.max(3, lo - 1), hi: lo + 3, walls: 0.2, mud: 0.1, pits: 0.08, arrows: arrows, springs: springs, need: 'any', tries: 200000, rnd: mulberry32(seed + 77) })
+      || fit({ n: 6, lo: 3, hi: 8, walls: 0.2, mud: 0.1, pits: 0.08, need: 'any', tries: 200000, rnd: mulberry32(seed + 99) });
+  }
+
+  // The daily board is the same for everyone on a given day. dateKey is 'YYYY-MM-DD'.
+  function dailySeed(dateKey) {
+    var p = dateKey.split('-');
+    return (+p[0]) * 10000 + (+p[1]) * 100 + (+p[2]);
+  }
+  function dailyLevel(dateKey) {
+    var seed = dailySeed(dateKey);
+    var spec = { n: 6, walls: 0.2, mud: 0.1, pits: 0.08, par: 4 + (seed % 3), need: 'any', tries: 200000, rnd: mulberry32(seed) };
+    var L = generate(spec);
+    if (!L) { spec.par = 4; spec.rnd = mulberry32(seed + 1); L = generate(spec); }
+    return L;
+  }
+
+  // Stars: 3 at or under par, 2 within two turns of par, 1 otherwise.
+  function stars(turns, par) { return turns <= par ? 3 : (turns <= par + 2 ? 2 : 1); }
+
+  return {
+    DX: DX, DY: DY, ENDLESS_FROM: ENDLESS_FROM, parse: parse, slide: slide, solve: solve, hint: hint,
+    evaluate: evaluate, parOf: parOf, meets: meets, hasLoop: hasLoop, looping: looping,
+    mulberry32: mulberry32, randomRows: randomRows, generate: generate, fit: fit, endlessLevel: endlessLevel,
+    dailySeed: dailySeed, dailyLevel: dailyLevel, stars: stars
+  };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = CORE;
+
+  var LEVELS = [
+    { n: 5, rows: ['..#.O', '#.S..', '#.#..', '...##', '.....'], par: 2 },
+    { n: 5, rows: ['O....', '.....', '#.#..', '.....', '.S...'], par: 3 },
+    { n: 5, rows: ['#.#..', '..#.#', '#S.##', '...O.', '..#.#'], par: 3 },
+    { n: 5, rows: ['..#..', '#....', '.....', '#..O.', '.#.S.'], par: 4 },
+    { n: 5, rows: ['#.#..', '.S...', '.#O#.', '...#.', '#....'], par: 4 },
+    { n: 5, rows: ['.....', '...O.', '#.#..', 'S....', '#....'], par: 5 },
+    { n: 5, rows: ['.m#m.', '...m.', '.#...', 'mO..m', '..S..'], par: 3 },
+    { n: 5, rows: ['#.#..', '#...O', '...m.', '.#...', 'S.mm#'], par: 3 },
+    { n: 5, rows: ['.S..#', 'm#..#', '..#..', 'O....', '.....'], par: 4 },
+    { n: 6, rows: ['..#.#.', '.#.#.#', '#...m.', '..#O#.', '##.m..', '#..S.#'], par: 4 },
+    { n: 6, rows: ['#.#.#.', 'm.mmS#', '.#m.#.', '.#O..#', 'm.....', '....m.'], par: 5 },
+    { n: 6, rows: ['.###..', '.mS..#', '.m#m..', '...m.#', '..m##.', 'm...O.'], par: 5 },
+    { n: 6, rows: ['p#..#p', '.....O', '..##.p', 'm#.#.p', '##.#mS', 'p.#..#'], par: 3 },
+    { n: 6, rows: ['S#..#.', '.#..m#', '.pO...', '.m....', '#..p#.', '..mm#.'], par: 4 },
+    { n: 6, rows: ['p.S.#.', 'O.#...', '.....p', '#m.##.', '..##.#', '..##.#'], par: 4 },
+    { n: 6, rows: ['#..O..', '......', '#.m.#.', '.S....', '..p#m.', '.#....'], par: 5 },
+    { n: 6, rows: ['.#pS..', '.#..#.', '.#...#', '.#.m.p', '...O#.', '#.....'], par: 5 },
+    { n: 6, rows: ['.p...#', 'm.##Op', '.#....', 'm#..mm', '...##.', '.Sm..p'], par: 6 },
+    { n: 6, rows: ['..S..m', '.....#', '.O....', '......', '.m.m..', '...m..'], par: 4 },
+    { n: 6, rows: ['#p.m.#', '......', '..##O#', '.....#', 'm.m..#', 'S.m..#'], par: 4 },
+    { n: 6, rows: ['p..p.#', '#mmOp.', '...#..', '.mS#..', '#....#', '#.....'], par: 5 },
+    { n: 6, rows: ['.O....', '.#m...', '...S..', 'p.#..#', '.#p.m.', '......'], par: 5 },
+    { n: 6, rows: ['..S...', '......', '...m..', '...p##', 'm.#O..', '#..mp#'], par: 6 },
+    { n: 6, rows: ['m...#.', '####.#', '....#p', '..#.O.', '.#p..#', '.S#.m.'], par: 6 },
+    { n: 6, rows: ['....O.', '#..#..', '#m###.', '.pp.mm', '..m...', '.###.S'], par: 5 },
+    { n: 6, rows: ['.#....', '.##.##', 'O#...p', '....p#', 'p.m..S', '#....#'], par: 6 },
+    { n: 6, rows: ['...#..', '.....#', '#....#', '....m.', 'O.m.#.', 'p.#..S'], par: 6 },
+    { n: 6, rows: ['.#....', 'p..S.#', '#..m..', '.#.p..', '##.#p.', 'm..O.p'], par: 7 },
+    { n: 6, rows: ['.#.#..', 'p...m.', 'S.##..', '##..p.', 'p.###.', '.#..O.'], par: 7 },
+    { n: 7, rows: ['O.##...', '#m....m', '.###...', 'pp.S..m', '......#', 'm..m..#', '.#.#.#.'], par: 7 },
+    { n: 6, rows: ['#S..p.', '....#p', '.#p#.#', '..m.#p', '.m...#', '.m#O.#'], par: 7 },
+    { n: 6, rows: ['##.#.#', '.#O...', '#.m...', '...#.p', '.#.S..', '....p.'], par: 7 },
+    { n: 7, rows: ['..#...m', '.....m#', '#m....O', '.....m.', '....Spp', '.p..m..', '##.....'], par: 8 },
+    { n: 7, rows: ['#...pp.', '..m...#', '#..#O#p', 'pp....#', '...m...', '..S#.m.', '#.m....'], par: 8 },
+    { n: 7, rows: ['.m.#..O', 'p......', '.....m.', '.S..m..', 'm..p...', '.##m..#', '...m...'], par: 8 },
+    { n: 7, rows: ['..####p', 'S......', 'm.##...', '#...pp.', 'p.....m', 'O#....m', '......p'], par: 8 },
+    { n: 6, rows: ['#...#.', '......', '.#....', 'O..#S.', '...#..', '.v....'], par: 3 },
+    { n: 6, rows: ['O#.<..', '..#S..', 'v^<.#.', '..##..', '.#.##.', '#<.#v.'], par: 4 },
+    { n: 6, rows: ['.#..##', '...v..', '.O#>#.', '#.....', '......', '....^S'], par: 4 },
+    { n: 6, rows: ['.SO..#', '...#.<', '..v#.#', '......', '<....#', '......'], par: 5 },
+    { n: 6, rows: ['.#..##', '.S....', '....<#', '.....#', '.>.v..', '.O.#.#'], par: 5 },
+    { n: 7, rows: ['..<...#', '.>#.#..', '..v....', '..#..O.', '.......', '.#>.#..', '.S.#.#v'], par: 6 },
+    { n: 6, rows: ['z...^.', '^.S#.#', '.#z..z', '.^...O', '.#.##p', '.v##zz'], par: 3 },
+    { n: 6, rows: ['#.S#..', '...#..', 'z..>z.', '#.#z.z', '.###.O', '.#....'], par: 4 },
+    { n: 6, rows: ['pz..#O', '..S...', '.#.##.', '.#..#p', '..z...', '.#v...'], par: 4 },
+    { n: 6, rows: ['.z#O..', '#..#..', '.#....', 'z....z', '..zS#.', '#.....'], par: 5 },
+    { n: 7, rows: ['z.^....', 'z.>z...', '##OzSz#', '....z##', '#...z..', '.#.#..#', '.z#.#..'], par: 5 },
+    { n: 7, rows: ['.^..#O#', '#.v##..', '.#.....', 'p.....#', '..S..##', '.......', '.#zz..#'], par: 6 },
+    { n: 6, rows: ['#<S..>', '>.z..m', '.<.mzp', 'Opmpzp', '#..z#.', '.m....'], par: 4 },
+    { n: 6, rows: ['..#.>.', '.Ozv.#', '#z..Sm', '.p..#.', '.pz<.<', '^.z...'], par: 5 },
+    { n: 6, rows: ['.#...#', '<..#.z', 'Smm.#v', '.mOpz#', 'z.#...', '......'], par: 5 },
+    { n: 7, rows: ['#..#..S', '#..>.z.', 'p.O##.^', '..m..mm', '#..#..#', '....#p#', '<<#..^.'], par: 6 },
+    { n: 7, rows: ['zp.#m.#', '.......', '...##mS', '.p..^p^', 'mzO#pmm', '.......', '...##..'], par: 6 },
+    { n: 7, rows: ['.p#mO..', 'z...#zz', '....S#.', '<..#.m.', 'm##p...', 'z#.m.p.', '.m..zz.'], par: 7 }
+  ];
+
+  // ---- the play flow
+  function updateUI() {
+    $('turns').textContent = String(turns);
+    $('par').textContent = String(LV.par);
+    $('turns-card').className = 'stat' + (turns > LV.par ? ' over' : '');
+    joy.classList.toggle('off', busy || won || failed);
+    $('undo-label').textContent = String(undoLeft);
+    $('undo').disabled = busy || won || undoLeft <= 0 || hist.length === 0;
+    $('hint-label').textContent = String(hintsLeft);
+    $('hint').disabled = busy || won || failed || hintsLeft <= 0;
+  }
+  // A fresh attempt: the ball settles under gravity, the undo allowance is back to two.
+  function startAttempt() {
+    var s0 = CORE.slide(grid, N, start[0], start[1], 0);
+    pos = { x: s0.x, y: s0.y };
+    g = 0; th = 0; turns = 0; hist = []; undoLeft = 2; hintsLeft = 3;
+    busy = false; won = false; failed = false;
+    drawWorld();
+    clearFx();
+    setRotation(0, true);
+    ballBody.setAttribute('class', restClass());
+    placeBall(pos.x, pos.y);
+    msg(restMsg());
+    updateUI();
+  }
+  function showPlay() {
+    $('levels').hidden = true;
+    $('settings').hidden = true;
+    $('map').hidden = true;
+    $('win').hidden = true;
+    $('play').hidden = false;
+  }
+  function loadLevel(i) {
+    mode = 'campaign'; level = i; LV = levelAt(i);
+    setBoard(LV.rows);
+    startAttempt();
+    $('kicker').textContent = 'Level ' + (i + 1);
+    showPlay();
+  }
+  function loadDaily(key) {
+    mode = 'daily'; dayKey = key;
+    var D = dailyFor(key);
+    LV = { n: D.n, rows: D.rows, par: D.par };
+    setBoard(LV.rows);
+    startAttempt();
+    $('kicker').textContent = 'Daily ' + dayLabel(key);
+    showPlay();
+  }
+  function restart() {
+    if (busy) return;
+    if (mode === 'daily') loadDaily(dayKey); else loadLevel(level);
+  }
+
+  // A turn: the world rotates (dir 1 is right, clockwise; -1 is left), then the ball falls.
+  function turn(dir) {
+    if (busy || won || failed) return;
+    clearFx();
+    hist.push({ x: pos.x, y: pos.y, g: g, th: th, turns: turns });
+    turns += 1;
+    bump($('turns'));
+    joy.classList.remove('teach');
+    buzz(8);
+    th += 90 * dir;
+    g = (g + dir + 4) % 4;
+    busy = true;
+    ballBody.setAttribute('class', '');
+    setRotation(th, false);
+    msg('');
+    updateUI();
+    tone(330, 0.08, 'triangle', 0.04);
+    setTimeout(fall, Math.round(TURN_MS * speed()));
+  }
+  function fall() {
+    var r = CORE.slide(grid, N, pos.x, pos.y, g);
+    if (!r.moved) {
+      busy = false;
+      shake();
+      msg(MSG.noMove);
+      updateUI();
+      return;
+    }
+    walk(r.path, function () {
+      pos = { x: r.x, y: r.y };
+      if (r.end === 'win') { finish(); return; }
+      if (r.end === 'pit') {
+        failed = true; busy = false;
+        tone(90, 0.35, 'sawtooth', 0.035); buzz([40, 60, 40]);
+        ballBody.setAttribute('class', 'drop');
+        shake();
+        msg(MSG.pit);
+        updateUI();
+        return;
+      }
+      busy = false;
+      if (r.end === 'mud') { ballBody.setAttribute('class', 'mud'); msg(MSG.mud); tone(120, 0.12, 'square', 0.025); }
+      else { land(); msg(restMsg()); tone(180, 0.09, 'sine', 0.05); }
+      updateUI();
+    });
+  }
+  function undo() {
+    if (busy || won || undoLeft <= 0 || !hist.length) return;
+    clearFx();
+    var h = hist.pop();
+    pos = { x: h.x, y: h.y };
+    g = h.g; th = h.th; turns = h.turns;
+    undoLeft -= 1;
+    failed = false;
+    ballBody.setAttribute('class', restClass());
+    setRotation(th, false);
+    placeBall(pos.x, pos.y);
+    msg(restMsg());
+    updateUI();
+  }
+  // The hint shows the next turn of the fewest-turn solution, as the path it would take. Three per attempt. A hint
+  // adds no turn, so it does not change the stars.
+  function hint() {
+    if (busy || won || failed) return;
+    if (hintsLeft <= 0) { msg(MSG.hintOut); return; }
+    var d = CORE.hint(grid, N, pos.x, pos.y, g);
+    if (d === null) { msg(MSG.hintNone); return; }
+    hintsLeft -= 1;
+    previewFor(d === 'R' ? 1 : -1);
+    msg('Hint: ' + $('msg').textContent);
+    updateUI();
+  }
+  // The result as text, for sharing: where it was played, the stars, the turns and the target.
+  var lastResult = '';
+  function turnWord(n) { return n + (n === 1 ? ' turn' : ' turns'); }
+  function resultText(st) {
+    var where = mode === 'daily' ? 'Daily puzzle, ' + dayLabel(dayKey) : 'Level ' + (level + 1);
+    return 'Turnfall · ' + where + ' · ' + starText(st) + ' · ' + turnWord(turns) + ' (goal ' + LV.par + ')';
+  }
+  // Copying runs inside the click. When the clipboard refuses, the text is shown selected, so it can be copied by hand.
+  function copyResult() {
+    var label = $('copy').querySelector('span');
+    function done() {
+      label.textContent = MSG.copied;
+      setTimeout(function () { label.textContent = 'Copy'; }, 1500);
+    }
+    function fallback() {
+      var box = $('copy-text');
+      box.value = lastResult; box.hidden = false; box.focus(); box.select();
+      try { if (document.execCommand('copy')) done(); } catch (e) { /* the text stays selected */ }
+    }
+    try { navigator.clipboard.writeText(lastResult).then(done, fallback); } catch (e) { fallback(); }
+  }
+
+  function finish() {
+    won = true; busy = false; failed = false;
+    var st = CORE.stars(turns, LV.par);
+    record(st);
+    ballBody.setAttribute('class', 'sink');
+    tone(523, 0.12, 'triangle', 0.06); tone(659, 0.12, 'triangle', 0.06, 0.12); tone(784, 0.3, 'triangle', 0.06, 0.24);
+    buzz(30);
+    if (goalEl) goalEl.setAttribute('class', 'goal pulse');
+    msg('');
+    updateUI();
+    // The result shows once the ball has sunk. A restart in the meantime leaves won false, so nothing shows.
+    setTimeout(function () { if (won) showWin(st); }, 500);
+  }
+  function record(st) {
+    var table = mode === 'daily' ? progress.daily : progress.best;
+    var key = mode === 'daily' ? dayKey : level;
+    var old = table[key];
+    if (!old || st > old.s || (st === old.s && turns < old.t)) table[key] = { s: st, t: turns };
+    saveProgress();
+  }
+  function showWin(st) {
+    var campaign = mode === 'campaign';
+    $('win-stars').textContent = starText(st);
+    $('win-text').textContent = turnWord(turns) + ' · goal ' + LV.par;
+    $('next').textContent = campaign ? 'Next' : 'Levels';
+    if (st === 3) confetti(); else $('confetti').textContent = '';
+    $('win-map').hidden = !(campaign && chapterDone(chapterOf(level)));
+    $('win').hidden = false;
+    // The next level is made while this one is on screen, so it is ready as soon as the player asks for it.
+    if (campaign) setTimeout(function () { levelAt(level + 1); }, 0);
+    lastResult = resultText(st);
+    $('copy-text').hidden = true;
+    $('next').focus();
+  }
+
+  // The confetti on a three-star win: small pieces that fall once, then are gone.
+  function confetti() {
+    var box = $('confetti'), cols = ['var(--sun)', 'var(--vermilion)', 'var(--wall)', 'var(--mud)'];
+    box.textContent = '';
+    for (var k = 0; k < 18; k++) {
+      var p = document.createElement('i');
+      p.style.left = (Math.random() * 100).toFixed(1) + '%';
+      p.style.setProperty('--c', cols[k % cols.length]);
+      p.style.setProperty('--dx', ((Math.random() - 0.5) * 140).toFixed(0) + 'px');
+      p.style.setProperty('--d', (1.3 + Math.random() * 0.9).toFixed(2) + 's');
+      p.style.setProperty('--t', (Math.random() * 0.35).toFixed(2) + 's');
+      box.appendChild(p);
+    }
+  }
+
+  // ---- the handle turns the world. It slides left and right only, and follows the finger from where it went down, so a tap turns nothing.
+  // Push past half of the travel: the half pushed toward shows where the ball would go. Let go, and the world turns that way.
+  // Let go before that, or bring the knob back to the middle, and nothing turns. The keys work too.
+  var joy = $('joy'), knobEl = $('joy-knob'), stick = null;
+  function moveStick(e) {
+    var s = stick, dx = Math.max(-s.R, Math.min(s.R, e.clientX - s.ox));
+    knobEl.style.transform = 'translate(' + dx.toFixed(1) + 'px,0px)';
+    var f = dx / s.R;
+    var dir = f >= 0.5 ? 1 : f <= -0.5 ? -1 : 0;
+    joy.classList.toggle('pull-r', dir > 0);
+    joy.classList.toggle('pull-l', dir < 0);
+    if (dir !== s.dir) { s.dir = dir; if (dir) previewFor(dir); else clearPreview(); }
+  }
+  joy.addEventListener('pointerdown', function (e) {
+    if (e.button > 0 || stick || busy || won || failed) return;
+    joy.classList.remove('teach');
+    var r = joy.getBoundingClientRect(), kr = knobEl.getBoundingClientRect();
+    stick = { id: e.pointerId, ox: e.clientX, R: r.width / 2 - kr.width / 2 - 4, dir: 0 };
+    try { joy.setPointerCapture(e.pointerId); } catch (x) { /* optional */ }
+    knobEl.classList.add('held');
+  });
+  joy.addEventListener('pointermove', function (e) { if (stick && e.pointerId === stick.id) moveStick(e); });
+  function endStick(e, cancelled) {
+    if (!stick || e.pointerId !== stick.id) return;
+    var s = stick;
+    stick = null;
+    knobEl.classList.remove('held');
+    knobEl.style.transform = '';
+    joy.classList.remove('pull-l', 'pull-r');
+    clearFx();
+    if (!cancelled && s.dir && !busy && !won && !failed) turn(s.dir);
+    else msg(restMsg());
+  }
+  joy.addEventListener('pointerup', function (e) { endStick(e, false); });
+  joy.addEventListener('pointercancel', function (e) { endStick(e, true); });
+
+  // ---- level select: a daily card, then one chapter at a time (the arrows step between chapters) and its six levels.
+  // The chapters open as far as the first unfinished level, or the furthest level played.
+  function maxChapter() {
+    var first = 0;
+    while (progress.best[first]) first += 1;
+    var far = level;
+    Object.keys(progress.best).forEach(function (k) { far = Math.max(far, +k); });
+    return chapterOf(Math.max(first, far));
+  }
+  function openLevels() {
+    if (mode === 'campaign') sheetChapter = chapterOf(level);
+    sheetChapter = Math.max(0, Math.min(sheetChapter, maxChapter()));
+    renderLevels();
+    $('levels').hidden = false;
+    $('open-levels').setAttribute('aria-expanded', 'true');
+    $('levels-close').focus();
+  }
+  function closeLevels() {
+    $('levels').hidden = true;
+    $('open-levels').setAttribute('aria-expanded', 'false');
+    (!$('win').hidden ? $('next') : $('open-levels')).focus();
+  }
+  // Where the six levels of a chapter sit on the path, in percent of its box: from the left along the top, then back along the bottom.
+  var PATH_XY = [[18, 26], [50, 26], [82, 26], [82, 74], [50, 74], [18, 74]];
+  function renderLevels() {
+    var today = todayKey(), dd = progress.daily[today];
+    $('daily-stars').textContent = starText(dd ? dd.s : 0);
+    $('daily-sub').textContent = dayLabel(today);
+    $('chapter-name').textContent = chapterTitle(sheetChapter);
+    var tags = $('chapter-tags');
+    tags.textContent = '';
+    chapterInfo(sheetChapter).tags.forEach(function (t) {
+      var tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.innerHTML = TAG_SVG[t];
+      tags.appendChild(tag);
+    });
+    $('ch-prev').disabled = sheetChapter === 0;
+    $('ch-next').disabled = sheetChapter >= maxChapter();
+    var box = $('levels-grid');
+    box.textContent = '';
+    var line = el('svg', { viewBox: '0 0 100 100', preserveAspectRatio: 'none', class: 'path-line', 'aria-hidden': 'true' }, box);
+    el('polyline', { points: PATH_XY.map(function (p) { return p.join(','); }).join(' ') }, line);
+    [0, 1, 2, 3, 4, 5].forEach(function (k) {
+      var i = sheetChapter * 6 + k, best = progress.best[i], st = best ? best.s : 0, par = levelAt(i).par;
+      var b = document.createElement('button'), n = document.createElement('b'), s = document.createElement('span');
+      b.type = 'button';
+      b.className = 'lvl' + (mode === 'campaign' && i === level ? ' cur' : '') + (st ? ' done' : '');
+      b.style.left = PATH_XY[k][0] + '%';
+      b.style.top = PATH_XY[k][1] + '%';
+      n.textContent = String(i + 1);
+      s.className = 's'; s.textContent = starText(st);
+      b.append(n, s);
+      b.setAttribute('aria-label', 'Level ' + (i + 1) + ', goal ' + par + (st ? ', ' + st + ' of 3 stars' : ''));
+      b.addEventListener('click', function () { loadLevel(i); closeLevels(); });
+      box.appendChild(b);
+    });
+    $('chapter-map').disabled = !chapterDone(sheetChapter);
+  }
+
+  // ---- the chapter map: drawn on a canvas, shown as a picture the player can save
+  function chapterMap(ch) {
+    var S = 720, c = document.createElement('canvas');
+    c.width = S; c.height = S;
+    var ctx = c.getContext('2d'), css = getComputedStyle(document.documentElement);
+    var tok = function (v, d) { return css.getPropertyValue(v).trim() || d; };
+    var ink = tok('--ink', '#101a2e'), paper = tok('--surface', '#ffffff'), sun = tok('--sun', '#ffd23f');
+    var ink2 = tok('--ink-2', '#4b5870'), tile = tok('--tile', '#e3eaf4'), red = tok('--vermilion', '#e8462a');
+    ctx.fillStyle = paper; ctx.fillRect(0, 0, S, S);
+    ctx.strokeStyle = ink; ctx.lineWidth = 8; ctx.strokeRect(14, 14, S - 28, S - 28);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = ink; ctx.font = '400 60px "Secular One", Assistant, sans-serif';
+    ctx.fillText(chapterInfo(ch).name, S / 2, 96);
+    var got = 0;
+    for (var k = 0; k < 6; k++) if (progress.best[ch * 6 + k]) got += progress.best[ch * 6 + k].s;
+    ctx.fillStyle = ink2; ctx.font = '600 28px Assistant, sans-serif';
+    ctx.fillText((ch < CHAPTERS.length ? 'Chapter ' + (ch + 1) + ' · ' : '') + got + ' of 18 stars', S / 2, 158);
+    var at = [[0.22, 0.38], [0.5, 0.34], [0.78, 0.42], [0.62, 0.6], [0.3, 0.6], [0.5, 0.76]].map(function (p) {
+      return { x: p[0] * S, y: p[1] * S };
+    });
+    ctx.strokeStyle = ink; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    at.forEach(function (p, i) { if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); });
+    ctx.stroke();
+    at.forEach(function (p, k) {
+      var b = progress.best[ch * 6 + k], st = b ? b.s : 0;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 50, 0, Math.PI * 2);
+      ctx.fillStyle = st === 3 ? sun : st ? tile : paper;
+      ctx.fill();
+      ctx.lineWidth = 6; ctx.strokeStyle = ink;
+      if (!st) ctx.setLineDash([10, 9]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = ink; ctx.font = '400 40px "Secular One", Assistant, sans-serif';
+      ctx.fillText(String(k + 1), p.x, p.y + 2);
+      ctx.fillStyle = red; ctx.font = '700 26px Assistant, sans-serif';
+      ctx.fillText(starText(st), p.x, p.y + 80);
+    });
+    ctx.fillStyle = red; ctx.font = '400 30px "Secular One", Assistant, sans-serif';
+    ctx.fillText('Turnfall', S / 2, S - 40);
+    return c.toDataURL('image/png');
+  }
+  function openMap(ch) {
+    mapFrom = document.activeElement;
+    $('map-title').textContent = chapterTitle(ch);
+    $('map-note').textContent = 'Long-press the picture to save it.';
+    $('map-img').removeAttribute('src');
+    $('map').hidden = false;
+    $('map-close').focus();
+    var fonts = document.fonts && document.fonts.load
+      ? Promise.all([document.fonts.load('400 60px "Secular One"'), document.fonts.load('600 28px "Assistant"')]).catch(function () {})
+      : Promise.resolve();
+    var waited = new Promise(function (done) { setTimeout(done, 1200); });
+    Promise.race([fonts, waited]).then(function () {
+      try { $('map-img').src = chapterMap(ch); }
+      catch (e) { $('map-note').textContent = 'Could not show it.'; }
+    });
+  }
+  function closeMap() {
+    $('map').hidden = true;
+    if (mapFrom && mapFrom.focus) mapFrom.focus();
+  }
+
+  // ---- settings: the speed of the animation, and resetting the progress (two taps)
+  function openSettings() {
+    renderSettings();
+    armReset(false);
+    $('settings').hidden = false;
+    $('open-settings').setAttribute('aria-expanded', 'true');
+    $('settings-close').focus();
+  }
+  function closeSettings() {
+    $('settings').hidden = true;
+    $('open-settings').setAttribute('aria-expanded', 'false');
+    $('open-settings').focus();
+  }
+  function renderSettings() {
+    ['normal', 'fast', 'off'].forEach(function (s) {
+      $('speed-' + s).setAttribute('aria-pressed', String(settings.speed === s));
+    });
+    ['auto', 'light', 'dark'].forEach(function (t) {
+      $('theme-' + t).setAttribute('aria-pressed', String(settings.theme === t));
+    });
+    $('sound-toggle').setAttribute('aria-pressed', String(settings.sound));
+    $('vibe-toggle').setAttribute('aria-pressed', String(settings.vibe));
+    renderStats();
+  }
+  // The figures come from this browser's progress: levels solved, three-star levels, stars, daily puzzles, and the streak.
+  function renderStats() {
+    var solved = 0, threes = 0, starSum = 0, key;
+    for (key in progress.best) {
+      if (!progress.best.hasOwnProperty(key)) continue;
+      solved += 1; starSum += progress.best[key].s;
+      if (progress.best[key].s === 3) threes += 1;
+    }
+    var streak = 0, d = new Date();
+    if (!progress.daily[todayKey()]) d.setUTCDate(d.getUTCDate() - 1);
+    while (progress.daily[dateKey(d)]) { streak += 1; d.setUTCDate(d.getUTCDate() - 1); }
+    var cells = [
+      ['Solved', String(solved)],
+      ['Three stars', String(threes)],
+      ['Stars', String(starSum)],
+      ['Daily puzzles', String(Object.keys(progress.daily).length)],
+      ['Streak', String(streak)]
+    ];
+    var box = $('stats');
+    box.textContent = '';
+    cells.forEach(function (c) {
+      var w = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd');
+      w.className = 'stat-cell';
+      dt.textContent = c[0]; dd.textContent = c[1];
+      w.append(dt, dd);
+      box.appendChild(w);
+    });
+  }
+  // Speed, and the page's colour scheme: auto follows the system, light and dark set it explicitly.
+  function applySettings() {
+    setTurnSpeed();
+    if (settings.theme === 'light' || settings.theme === 'dark') document.documentElement.setAttribute('data-theme', settings.theme);
+    else document.documentElement.removeAttribute('data-theme');
+  }
+  var armTimerId = 0;
+  function armReset(on) {
+    var b = $('reset-progress');
+    clearTimeout(armTimerId);
+    if (on) {
+      b.setAttribute('data-armed', '');
+      b.textContent = 'Sure?';
+      armTimerId = setTimeout(function () { armReset(false); }, 4000);
+    } else {
+      b.removeAttribute('data-armed');
+      b.textContent = 'Reset';
+    }
+  }
+
+  // ---- wiring
+  $('undo').addEventListener('click', undo);
+  $('hint').addEventListener('click', hint);
+  $('copy').addEventListener('click', copyResult);
+  $('reset').addEventListener('click', restart);
+  $('next').addEventListener('click', function () {
+    if (mode === 'daily') { $('win').hidden = true; openLevels(); return; }
+    loadLevel(level + 1);
+  });
+  $('win-map').addEventListener('click', function () { openMap(chapterOf(level)); });
+  $('win-levels').addEventListener('click', openLevels);
+  $('open-levels').addEventListener('click', openLevels);
+  $('levels-close').addEventListener('click', closeLevels);
+  $('ch-prev').addEventListener('click', function () { if (sheetChapter > 0) { sheetChapter -= 1; renderLevels(); } });
+  $('ch-next').addEventListener('click', function () { if (sheetChapter < maxChapter()) { sheetChapter += 1; renderLevels(); } });
+  $('open-daily').addEventListener('click', function () { loadDaily(todayKey()); });
+  $('daily-card').addEventListener('click', function () { loadDaily(todayKey()); closeLevels(); });
+  $('chapter-map').addEventListener('click', function () { openMap(sheetChapter); });
+  $('map-close').addEventListener('click', closeMap);
+  $('open-settings').addEventListener('click', openSettings);
+  $('settings-close').addEventListener('click', closeSettings);
+  ['auto', 'light', 'dark'].forEach(function (t) {
+    $('theme-' + t).addEventListener('click', function () { settings.theme = t; saveSettings(); applySettings(); renderSettings(); });
+  });
+  $('sound-toggle').addEventListener('click', function () {
+    settings.sound = !settings.sound; saveSettings(); renderSettings();
+    tone(660, 0.08, 'triangle', 0.05);
+  });
+  $('vibe-toggle').addEventListener('click', function () {
+    settings.vibe = !settings.vibe; saveSettings(); renderSettings();
+    buzz(20);
+  });
+  ['normal', 'fast', 'off'].forEach(function (s) {
+    $('speed-' + s).addEventListener('click', function () { settings.speed = s; saveSettings(); applySettings(); renderSettings(); });
+  });
+  $('reset-progress').addEventListener('click', function () {
+    if (!$('reset-progress').hasAttribute('data-armed')) { armReset(true); return; }
+    progress = { best: {}, daily: {} };
+    saveProgress();
+    armReset(false);
+    msg(MSG.reset);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (!$('map').hidden) { if (e.key === 'Escape') closeMap(); return; }
+    if (!$('settings').hidden) { if (e.key === 'Escape') closeSettings(); return; }
+    if (!$('levels').hidden) { if (e.key === 'Escape') closeLevels(); return; }
+    if ($('play').hidden || !$('win').hidden) return;
+    if (e.key === 'ArrowRight') { e.preventDefault(); turn(1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); turn(-1); }
+    else if (e.key === 'z' || e.key === 'Z') undo();
+    else if (e.key === 'h' || e.key === 'H') hint();
+  });
+
+  // ---- start on the first level that is not finished yet
+  applySettings();
+  var first = 0;
+  while (progress.best[first]) first += 1;
+  loadLevel(first);
+  // The very first visit: the knob nudges, so the player finds out that it moves. No text is needed.
+  if (!Object.keys(progress.best).length) joy.classList.add('teach');
+})();
+</script>

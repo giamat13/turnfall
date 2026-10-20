@@ -1,0 +1,14 @@
+{
+  "name": "turnfall",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A browser puzzle: turn the world so the ball rolls into the hole.",
+  "license": "MIT",
+  "scripts": {
+    "build": "node tools/assemble.js",
+    "test": "node tools/assemble.js && node tests/smoke2.js && node tests/joy.js && node tests/e2e.js && node tests/layout.js && node tests/tz.js"
+  },
+  "devDependencies": {
+    "playwright": "1.56.0"
+  }
+}

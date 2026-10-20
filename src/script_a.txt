@@ -1,0 +1,258 @@
+<script>
+(function () {
+  'use strict';
+  document.documentElement.lang = 'en';
+  document.documentElement.dir = 'ltr';
+  var NS = 'http://www.w3.org/2000/svg';
+  var KEY = 'world-best-v2', SKEY = 'world-settings-v2';
+  var TURN_MS = 420, STEP_MS = 110;
+  var SPEEDS = { normal: 1, fast: 0.5, off: 0 };
+  // The first nine chapters are designed by hand (LEVELS, below). Past them the chapters go on for ever.
+  // Each chapter shows its mechanics as small pictures, not as sentences.
+  var CHAPTERS = [
+    { name: 'Falling', tags: ['wall'] },
+    { name: 'Mud', tags: ['mud'] },
+    { name: 'Pits', tags: ['pit'] },
+    { name: 'Mixed', tags: ['mud', 'pit'] },
+    { name: 'Long Route', tags: ['wall', 'mud', 'pit'] },
+    { name: 'Whole World', tags: ['mud', 'pit', 'arrow', 'spring'] },
+    { name: 'Arrows', tags: ['arrow'] },
+    { name: 'Springs', tags: ['spring'] },
+    { name: 'All Together', tags: ['mud', 'pit', 'arrow', 'spring'] }
+  ];
+  var ALL_TAGS = ['mud', 'pit', 'arrow', 'spring'];
+  var TAG_SVG = {
+    wall: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4" style="fill:var(--wall)"></rect></svg>',
+    mud: '<svg viewBox="0 0 24 24"><circle cx="9" cy="10" r="4.5" style="fill:var(--mud)"></circle><circle cx="16" cy="15" r="3.5" style="fill:var(--mud)"></circle></svg>',
+    pit: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" style="fill:var(--pit)"></circle><circle cx="12" cy="12" r="3.5" style="fill:var(--pit-ink)"></circle></svg>',
+    arrow: '<svg viewBox="0 0 24 24"><path d="M12 20 4.5 9h15z" style="fill:var(--ink)"></path></svg>',
+    spring: '<svg viewBox="0 0 24 24"><path d="M3 12l3-4 3 8 3-8 3 8 3-8 3 4" style="fill:none;stroke:var(--ink);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"></path></svg>'
+  };
+  // Short words only. The preview words say where the ball would stop.
+  var MSG = {
+    noMove: 'No movement',
+    pit: 'Fell in a pit',
+    mud: 'Stuck in mud',
+    previewWin: 'Into the hole!',
+    previewPit: 'Into a pit!',
+    previewMud: 'Mud',
+    previewWall: 'Wall',
+    previewNoMove: 'Stays put',
+    hintNone: 'No path',
+    hintOut: 'No hints left',
+    copied: 'Copied!',
+    reset: 'Oops',
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var svg = $('board'), stage = $('stage'), world = $('world'), fx = $('fx'), ballEl = $('ball'), ballBody = $('ball-body');
+  var needle = $('needle'), boardCard = $('board-card'), goalEl = null;
+  var mode = 'campaign', level = 0, sheetChapter = 0, dayKey = '', LV = null, mapFrom = null;
+  var N = 0, grid = null, start = null;
+  var pos = { x: 0, y: 0 }, g = 0, th = 0, turns = 0, hist = [], undoLeft = 2, hintsLeft = 3;
+  var busy = false, won = false, failed = false;
+  var progress = loadProgress(), settings = loadSettings(), dailyCache = {}, extraLevels = {};
+
+  // Progress and settings live in this browser only. Storage can be blocked, so every access is guarded.
+  function loadProgress() {
+    try {
+      var p = JSON.parse(localStorage.getItem(KEY));
+      if (p && typeof p === 'object') return { best: p.best || {}, daily: p.daily || {} };
+    } catch (e) { /* start empty */ }
+    return { best: {}, daily: {} };
+  }
+  function saveProgress() {
+    try { localStorage.setItem(KEY, JSON.stringify(progress)); } catch (e) { /* the game works without storage */ }
+  }
+  function loadSettings() {
+    var s = { speed: 'normal', sound: false, vibe: true, theme: 'auto' };
+    try {
+      var o = JSON.parse(localStorage.getItem(SKEY));
+      if (o && SPEEDS.hasOwnProperty(o.speed)) s.speed = o.speed;
+      if (o && typeof o.sound === 'boolean') s.sound = o.sound;
+      if (o && typeof o.vibe === 'boolean') s.vibe = o.vibe;
+      if (o && (o.theme === 'light' || o.theme === 'dark')) s.theme = o.theme;
+    } catch (e) { /* defaults */ }
+    return s;
+  }
+  function saveSettings() {
+    try { localStorage.setItem(SKEY, JSON.stringify(settings)); } catch (e) { /* defaults next time */ }
+  }
+
+  function el(name, attrs, parent) {
+    var e = document.createElementNS(NS, name);
+    Object.keys(attrs).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    parent.appendChild(e);
+    return e;
+  }
+  function msg(t) { $('msg').textContent = t; }
+  // Plays a CSS animation again by removing the class, reflowing, and adding it back.
+  function bump(node) { node.classList.remove('bump'); void node.offsetWidth; node.classList.add('bump'); }
+  // Sounds are made here, not played from files, and only when the sound setting is on. A sound starts from a press,
+  // so the browser lets it play. Any failure is ignored: the game works without sound.
+  var audio = null;
+  function tone(freq, dur, type, vol, delay) {
+    if (!settings.sound) return;
+    try {
+      if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === 'suspended') audio.resume();
+      var t0 = audio.currentTime + (delay || 0), o = audio.createOscillator(), gain = audio.createGain();
+      o.type = type || 'sine'; o.frequency.value = freq;
+      gain.gain.setValueAtTime(vol || 0.05, t0);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(gain); gain.connect(audio.destination);
+      o.start(t0); o.stop(t0 + dur + 0.02);
+    } catch (e) { /* no sound here */ }
+  }
+  // A short buzz on a phone that has a motor for it. Turned off in the settings.
+  function buzz(pattern) {
+    if (!settings.vibe) return;
+    try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) { /* none here */ }
+  }
+  function speed() { return SPEEDS[settings.speed]; }
+  function chapterOf(i) { return Math.floor(i / 6); }
+  // Chapters past the nine designed ones are only numbered.
+  function chapterInfo(ci) {
+    return ci < CHAPTERS.length ? CHAPTERS[ci] : { name: 'Chapter ' + (ci + 1), tags: ALL_TAGS };
+  }
+  function chapterTitle(ci) {
+    return ci < CHAPTERS.length ? 'Chapter ' + (ci + 1) + ': ' + CHAPTERS[ci].name : 'Chapter ' + (ci + 1);
+  }
+  function chapterDone(ci) {
+    for (var k = 0; k < 6; k++) if (!progress.best[ci * 6 + k]) return false;
+    return true;
+  }
+  function starText(n) { return '★★★'.slice(0, n) + '☆☆☆'.slice(0, 3 - n); }
+  function pad(v) { return (v < 10 ? '0' : '') + v; }
+  // The day is the UTC date, so everyone has the same daily puzzle at the same moment.
+  function dateKey(d) { return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()); }
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function dayLabel(key) { var p = key.split('-'); return MONTHS[+p[1] - 1] + ' ' + (+p[2]); }
+  function todayKey() { return dateKey(new Date()); }
+  function dailyFor(key) {
+    if (!dailyCache[key]) dailyCache[key] = CORE.dailyLevel(key);
+    return dailyCache[key];
+  }
+  // The level at index i. The first 54 are designed (LEVELS); the rest are made from their index, so they match for everyone.
+  function levelAt(i) {
+    if (i < LEVELS.length) return LEVELS[i];
+    if (!extraLevels[i]) extraLevels[i] = CORE.endlessLevel(i) || LEVELS[i % LEVELS.length];
+    return extraLevels[i];
+  }
+  // The line under the board is empty while the ball rests. It only says something when the ball has just fallen in.
+  function restMsg() {
+    return failed ? MSG.pit : '';
+  }
+
+  function setBoard(rows) {
+    var P = CORE.parse(rows);
+    N = P.n; grid = P.grid; start = P.start;
+  }
+  function drawWorld() {
+    while (world.firstChild) world.removeChild(world.firstChild);
+    svg.setAttribute('viewBox', '0 0 ' + N + ' ' + N);
+    goalEl = null;
+    for (var y = 0; y < N; y++) {
+      for (var x = 0; x < N; x++) {
+        var c = grid[y][x];
+        if (c === 'W') {
+          el('rect', { x: x + 0.04, y: y + 0.1, width: 0.92, height: 0.9, rx: 0.14, class: 'lip' }, world);
+          el('rect', { x: x + 0.04, y: y + 0.03, width: 0.92, height: 0.9, rx: 0.14, class: 'wall' }, world);
+          continue;
+        }
+        el('rect', { x: x + 0.05, y: y + 0.05, width: 0.9, height: 0.9, rx: 0.14, class: c === 'M' ? 'tile mud' : c === 'P' ? 'tile pit' : 'tile' }, world);
+        if (c === 'M') {
+          el('circle', { cx: x + 0.3, cy: y + 0.36, r: 0.05, class: 'mudspot' }, world);
+          el('circle', { cx: x + 0.66, cy: y + 0.6, r: 0.04, class: 'mudspot' }, world);
+          el('circle', { cx: x + 0.44, cy: y + 0.74, r: 0.035, class: 'mudspot' }, world);
+        }
+        if (c.charAt(0) === 'A') drawArrow(x, y, +c.charAt(1));
+        if (c === 'Z') drawSpring(x, y);
+        if (c === 'P') el('circle', { cx: x + 0.5, cy: y + 0.5, r: 0.26, class: 'pitdot' }, world);
+        if (c === 'H') {
+          el('circle', { cx: x + 0.5, cy: y + 0.5, r: 0.3, class: 'hole' }, world);
+          goalEl = el('circle', { cx: x + 0.5, cy: y + 0.5, r: 0.38, class: 'goal' }, world);
+        }
+      }
+    }
+  }
+  // An arrow: a triangle pointing where a falling ball is sent. A spring: a zigzag that sends the ball back.
+  function drawArrow(x, y, d) {
+    var cx = x + 0.5, cy = y + 0.5, dx = CORE.DX[d], dy = CORE.DY[d], px = -dy, py = dx;
+    var pts = [[cx + 0.3 * dx, cy + 0.3 * dy], [cx - 0.12 * dx + 0.2 * px, cy - 0.12 * dy + 0.2 * py], [cx - 0.12 * dx - 0.2 * px, cy - 0.12 * dy - 0.2 * py]];
+    el('polygon', { points: pts.map(function (p) { return p[0].toFixed(3) + ',' + p[1].toFixed(3); }).join(' '), class: 'arrow' }, world);
+  }
+  function drawSpring(x, y) {
+    var pts = [];
+    for (var k = 0; k <= 6; k++) {
+      var dy = k === 0 || k === 6 ? 0 : (k % 2 ? -0.14 : 0.14);
+      pts.push((x + 0.2 + k * 0.1).toFixed(3) + ',' + (y + 0.5 + dy).toFixed(3));
+    }
+    el('polyline', { points: pts.join(' '), class: 'spring' }, world);
+  }
+  function placeBall(x, y) {
+    ballEl.setAttribute('transform', 'translate(' + (x + 0.5) + ',' + (y + 0.5) + ')');
+  }
+  function restClass() { return grid[pos.y][pos.x] === 'M' ? 'mud' : ''; }
+
+  // The world and the dial turn together; the dial's red dot always marks where the world's bottom is now.
+  function showAngle(deg) {
+    stage.style.transform = 'rotate(' + deg + 'deg)';
+    needle.style.transform = 'rotate(' + deg + 'deg)';
+  }
+  function setRotation(deg, instant) {
+    if (instant) { stage.style.transition = 'none'; needle.style.transition = 'none'; }
+    showAngle(deg);
+    if (instant) { void stage.offsetWidth; stage.style.transition = ''; needle.style.transition = ''; }
+  }
+  function setTurnSpeed() {
+    document.documentElement.style.setProperty('--turn', Math.round(TURN_MS * speed()) + 'ms');
+  }
+
+  // The path the ball would take, drawn in the world's own coordinates, with where it would stop.
+  function clearFx() { while (fx.firstChild) fx.removeChild(fx.firstChild); }
+  function showFx(r) {
+    clearFx();
+    if (r.path.length) {
+      var pts = [[pos.x, pos.y]].concat(r.path);
+      el('path', {
+        class: 'trail',
+        d: pts.map(function (p, i) { return (i ? 'L' : 'M') + (p[0] + 0.5) + ' ' + (p[1] + 0.5); }).join(' ')
+      }, fx);
+    }
+    el('circle', { cx: r.x + 0.5, cy: r.y + 0.5, r: 0.3, class: 'ghost ' + r.end }, fx);
+  }
+  function previewFor(dir) {
+    if (busy || won || failed) return;
+    var r = CORE.slide(grid, N, pos.x, pos.y, (g + dir + 4) % 4);
+    showFx(r);
+    msg(!r.moved ? MSG.previewNoMove : r.end === 'win' ? MSG.previewWin : r.end === 'pit' ? MSG.previewPit : r.end === 'mud' ? MSG.previewMud : MSG.previewWall);
+  }
+  function clearPreview() {
+    clearFx();
+    if (!busy && !won) msg(restMsg());
+  }
+
+  // Moves the ball cell by cell along path. At speed "off" it jumps.
+  function walk(path, done) {
+    var f = speed(), L = path.length, last = path[L - 1];
+    if (!f) { placeBall(last[0], last[1]); done(); return; }
+    var pts = [[pos.x, pos.y]].concat(path), dur = STEP_MS * f * L, t0 = null;
+    requestAnimationFrame(function frame(ts) {
+      if (t0 === null) t0 = ts;
+      var k = Math.min(1, (ts - t0) / dur), s = k * L;
+      var i = Math.min(L - 1, Math.floor(s)), q = s - i;
+      var a = pts[i], b = pts[i + 1];
+      placeBall(a[0] + (b[0] - a[0]) * q, a[1] + (b[1] - a[1]) * q);
+      if (k < 1) requestAnimationFrame(frame); else done();
+    });
+  }
+  function land() {
+    ballBody.setAttribute('class', 'land');
+    setTimeout(function () { if (ballBody.getAttribute('class') === 'land') ballBody.setAttribute('class', ''); }, 400);
+  }
+  function shake() {
+    boardCard.classList.remove('shake');
+    void boardCard.offsetWidth;
+    boardCard.classList.add('shake');
+  }

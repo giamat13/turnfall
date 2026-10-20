@@ -1,0 +1,491 @@
+
+  // ---- the play flow
+  function updateUI() {
+    $('turns').textContent = String(turns);
+    $('par').textContent = String(LV.par);
+    $('turns-card').className = 'stat' + (turns > LV.par ? ' over' : '');
+    joy.classList.toggle('off', busy || won || failed);
+    $('undo-label').textContent = String(undoLeft);
+    $('undo').disabled = busy || won || undoLeft <= 0 || hist.length === 0;
+    $('hint-label').textContent = String(hintsLeft);
+    $('hint').disabled = busy || won || failed || hintsLeft <= 0;
+  }
+  // A fresh attempt: the ball settles under gravity, the undo allowance is back to two.
+  function startAttempt() {
+    var s0 = CORE.slide(grid, N, start[0], start[1], 0);
+    pos = { x: s0.x, y: s0.y };
+    g = 0; th = 0; turns = 0; hist = []; undoLeft = 2; hintsLeft = 3;
+    busy = false; won = false; failed = false;
+    drawWorld();
+    clearFx();
+    setRotation(0, true);
+    ballBody.setAttribute('class', restClass());
+    placeBall(pos.x, pos.y);
+    msg(restMsg());
+    updateUI();
+  }
+  function showPlay() {
+    $('levels').hidden = true;
+    $('settings').hidden = true;
+    $('map').hidden = true;
+    $('win').hidden = true;
+    $('play').hidden = false;
+  }
+  function loadLevel(i) {
+    mode = 'campaign'; level = i; LV = levelAt(i);
+    setBoard(LV.rows);
+    startAttempt();
+    $('kicker').textContent = 'Level ' + (i + 1);
+    showPlay();
+  }
+  function loadDaily(key) {
+    mode = 'daily'; dayKey = key;
+    var D = dailyFor(key);
+    LV = { n: D.n, rows: D.rows, par: D.par };
+    setBoard(LV.rows);
+    startAttempt();
+    $('kicker').textContent = 'Daily ' + dayLabel(key);
+    showPlay();
+  }
+  function restart() {
+    if (busy) return;
+    if (mode === 'daily') loadDaily(dayKey); else loadLevel(level);
+  }
+
+  // A turn: the world rotates (dir 1 is right, clockwise; -1 is left), then the ball falls.
+  function turn(dir) {
+    if (busy || won || failed) return;
+    clearFx();
+    hist.push({ x: pos.x, y: pos.y, g: g, th: th, turns: turns });
+    turns += 1;
+    bump($('turns'));
+    joy.classList.remove('teach');
+    buzz(8);
+    th += 90 * dir;
+    g = (g + dir + 4) % 4;
+    busy = true;
+    ballBody.setAttribute('class', '');
+    setRotation(th, false);
+    msg('');
+    updateUI();
+    tone(330, 0.08, 'triangle', 0.04);
+    setTimeout(fall, Math.round(TURN_MS * speed()));
+  }
+  function fall() {
+    var r = CORE.slide(grid, N, pos.x, pos.y, g);
+    if (!r.moved) {
+      busy = false;
+      shake();
+      msg(MSG.noMove);
+      updateUI();
+      return;
+    }
+    walk(r.path, function () {
+      pos = { x: r.x, y: r.y };
+      if (r.end === 'win') { finish(); return; }
+      if (r.end === 'pit') {
+        failed = true; busy = false;
+        tone(90, 0.35, 'sawtooth', 0.035); buzz([40, 60, 40]);
+        ballBody.setAttribute('class', 'drop');
+        shake();
+        msg(MSG.pit);
+        updateUI();
+        return;
+      }
+      busy = false;
+      if (r.end === 'mud') { ballBody.setAttribute('class', 'mud'); msg(MSG.mud); tone(120, 0.12, 'square', 0.025); }
+      else { land(); msg(restMsg()); tone(180, 0.09, 'sine', 0.05); }
+      updateUI();
+    });
+  }
+  function undo() {
+    if (busy || won || undoLeft <= 0 || !hist.length) return;
+    clearFx();
+    var h = hist.pop();
+    pos = { x: h.x, y: h.y };
+    g = h.g; th = h.th; turns = h.turns;
+    undoLeft -= 1;
+    failed = false;
+    ballBody.setAttribute('class', restClass());
+    setRotation(th, false);
+    placeBall(pos.x, pos.y);
+    msg(restMsg());
+    updateUI();
+  }
+  // The hint shows the next turn of the fewest-turn solution, as the path it would take. Three per attempt. A hint
+  // adds no turn, so it does not change the stars.
+  function hint() {
+    if (busy || won || failed) return;
+    if (hintsLeft <= 0) { msg(MSG.hintOut); return; }
+    var d = CORE.hint(grid, N, pos.x, pos.y, g);
+    if (d === null) { msg(MSG.hintNone); return; }
+    hintsLeft -= 1;
+    previewFor(d === 'R' ? 1 : -1);
+    msg('Hint: ' + $('msg').textContent);
+    updateUI();
+  }
+  // The result as text, for sharing: where it was played, the stars, the turns and the target.
+  var lastResult = '';
+  function turnWord(n) { return n + (n === 1 ? ' turn' : ' turns'); }
+  function resultText(st) {
+    var where = mode === 'daily' ? 'Daily puzzle, ' + dayLabel(dayKey) : 'Level ' + (level + 1);
+    return 'Turnfall · ' + where + ' · ' + starText(st) + ' · ' + turnWord(turns) + ' (goal ' + LV.par + ')';
+  }
+  // Copying runs inside the click. When the clipboard refuses, the text is shown selected, so it can be copied by hand.
+  function copyResult() {
+    var label = $('copy').querySelector('span');
+    function done() {
+      label.textContent = MSG.copied;
+      setTimeout(function () { label.textContent = 'Copy'; }, 1500);
+    }
+    function fallback() {
+      var box = $('copy-text');
+      box.value = lastResult; box.hidden = false; box.focus(); box.select();
+      try { if (document.execCommand('copy')) done(); } catch (e) { /* the text stays selected */ }
+    }
+    try { navigator.clipboard.writeText(lastResult).then(done, fallback); } catch (e) { fallback(); }
+  }
+
+  function finish() {
+    won = true; busy = false; failed = false;
+    var st = CORE.stars(turns, LV.par);
+    record(st);
+    ballBody.setAttribute('class', 'sink');
+    tone(523, 0.12, 'triangle', 0.06); tone(659, 0.12, 'triangle', 0.06, 0.12); tone(784, 0.3, 'triangle', 0.06, 0.24);
+    buzz(30);
+    if (goalEl) goalEl.setAttribute('class', 'goal pulse');
+    msg('');
+    updateUI();
+    // The result shows once the ball has sunk. A restart in the meantime leaves won false, so nothing shows.
+    setTimeout(function () { if (won) showWin(st); }, 500);
+  }
+  function record(st) {
+    var table = mode === 'daily' ? progress.daily : progress.best;
+    var key = mode === 'daily' ? dayKey : level;
+    var old = table[key];
+    if (!old || st > old.s || (st === old.s && turns < old.t)) table[key] = { s: st, t: turns };
+    saveProgress();
+  }
+  function showWin(st) {
+    var campaign = mode === 'campaign';
+    $('win-stars').textContent = starText(st);
+    $('win-text').textContent = turnWord(turns) + ' · goal ' + LV.par;
+    $('next').textContent = campaign ? 'Next' : 'Levels';
+    if (st === 3) confetti(); else $('confetti').textContent = '';
+    $('win-map').hidden = !(campaign && chapterDone(chapterOf(level)));
+    $('win').hidden = false;
+    // The next level is made while this one is on screen, so it is ready as soon as the player asks for it.
+    if (campaign) setTimeout(function () { levelAt(level + 1); }, 0);
+    lastResult = resultText(st);
+    $('copy-text').hidden = true;
+    $('next').focus();
+  }
+
+  // The confetti on a three-star win: small pieces that fall once, then are gone.
+  function confetti() {
+    var box = $('confetti'), cols = ['var(--sun)', 'var(--vermilion)', 'var(--wall)', 'var(--mud)'];
+    box.textContent = '';
+    for (var k = 0; k < 18; k++) {
+      var p = document.createElement('i');
+      p.style.left = (Math.random() * 100).toFixed(1) + '%';
+      p.style.setProperty('--c', cols[k % cols.length]);
+      p.style.setProperty('--dx', ((Math.random() - 0.5) * 140).toFixed(0) + 'px');
+      p.style.setProperty('--d', (1.3 + Math.random() * 0.9).toFixed(2) + 's');
+      p.style.setProperty('--t', (Math.random() * 0.35).toFixed(2) + 's');
+      box.appendChild(p);
+    }
+  }
+
+  // ---- the handle turns the world. It slides left and right only, and follows the finger from where it went down, so a tap turns nothing.
+  // Push past half of the travel: the half pushed toward shows where the ball would go. Let go, and the world turns that way.
+  // Let go before that, or bring the knob back to the middle, and nothing turns. The keys work too.
+  var joy = $('joy'), knobEl = $('joy-knob'), stick = null;
+  function moveStick(e) {
+    var s = stick, dx = Math.max(-s.R, Math.min(s.R, e.clientX - s.ox));
+    knobEl.style.transform = 'translate(' + dx.toFixed(1) + 'px,0px)';
+    var f = dx / s.R;
+    var dir = f >= 0.5 ? 1 : f <= -0.5 ? -1 : 0;
+    joy.classList.toggle('pull-r', dir > 0);
+    joy.classList.toggle('pull-l', dir < 0);
+    if (dir !== s.dir) { s.dir = dir; if (dir) previewFor(dir); else clearPreview(); }
+  }
+  joy.addEventListener('pointerdown', function (e) {
+    if (e.button > 0 || stick || busy || won || failed) return;
+    joy.classList.remove('teach');
+    var r = joy.getBoundingClientRect(), kr = knobEl.getBoundingClientRect();
+    stick = { id: e.pointerId, ox: e.clientX, R: r.width / 2 - kr.width / 2 - 4, dir: 0 };
+    try { joy.setPointerCapture(e.pointerId); } catch (x) { /* optional */ }
+    knobEl.classList.add('held');
+  });
+  joy.addEventListener('pointermove', function (e) { if (stick && e.pointerId === stick.id) moveStick(e); });
+  function endStick(e, cancelled) {
+    if (!stick || e.pointerId !== stick.id) return;
+    var s = stick;
+    stick = null;
+    knobEl.classList.remove('held');
+    knobEl.style.transform = '';
+    joy.classList.remove('pull-l', 'pull-r');
+    clearFx();
+    if (!cancelled && s.dir && !busy && !won && !failed) turn(s.dir);
+    else msg(restMsg());
+  }
+  joy.addEventListener('pointerup', function (e) { endStick(e, false); });
+  joy.addEventListener('pointercancel', function (e) { endStick(e, true); });
+
+  // ---- level select: a daily card, then one chapter at a time (the arrows step between chapters) and its six levels.
+  // The chapters open as far as the first unfinished level, or the furthest level played.
+  function maxChapter() {
+    var first = 0;
+    while (progress.best[first]) first += 1;
+    var far = level;
+    Object.keys(progress.best).forEach(function (k) { far = Math.max(far, +k); });
+    return chapterOf(Math.max(first, far));
+  }
+  function openLevels() {
+    if (mode === 'campaign') sheetChapter = chapterOf(level);
+    sheetChapter = Math.max(0, Math.min(sheetChapter, maxChapter()));
+    renderLevels();
+    $('levels').hidden = false;
+    $('open-levels').setAttribute('aria-expanded', 'true');
+    $('levels-close').focus();
+  }
+  function closeLevels() {
+    $('levels').hidden = true;
+    $('open-levels').setAttribute('aria-expanded', 'false');
+    (!$('win').hidden ? $('next') : $('open-levels')).focus();
+  }
+  // Where the six levels of a chapter sit on the path, in percent of its box: from the left along the top, then back along the bottom.
+  var PATH_XY = [[18, 26], [50, 26], [82, 26], [82, 74], [50, 74], [18, 74]];
+  function renderLevels() {
+    var today = todayKey(), dd = progress.daily[today];
+    $('daily-stars').textContent = starText(dd ? dd.s : 0);
+    $('daily-sub').textContent = dayLabel(today);
+    $('chapter-name').textContent = chapterTitle(sheetChapter);
+    var tags = $('chapter-tags');
+    tags.textContent = '';
+    chapterInfo(sheetChapter).tags.forEach(function (t) {
+      var tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.innerHTML = TAG_SVG[t];
+      tags.appendChild(tag);
+    });
+    $('ch-prev').disabled = sheetChapter === 0;
+    $('ch-next').disabled = sheetChapter >= maxChapter();
+    var box = $('levels-grid');
+    box.textContent = '';
+    var line = el('svg', { viewBox: '0 0 100 100', preserveAspectRatio: 'none', class: 'path-line', 'aria-hidden': 'true' }, box);
+    el('polyline', { points: PATH_XY.map(function (p) { return p.join(','); }).join(' ') }, line);
+    [0, 1, 2, 3, 4, 5].forEach(function (k) {
+      var i = sheetChapter * 6 + k, best = progress.best[i], st = best ? best.s : 0, par = levelAt(i).par;
+      var b = document.createElement('button'), n = document.createElement('b'), s = document.createElement('span');
+      b.type = 'button';
+      b.className = 'lvl' + (mode === 'campaign' && i === level ? ' cur' : '') + (st ? ' done' : '');
+      b.style.left = PATH_XY[k][0] + '%';
+      b.style.top = PATH_XY[k][1] + '%';
+      n.textContent = String(i + 1);
+      s.className = 's'; s.textContent = starText(st);
+      b.append(n, s);
+      b.setAttribute('aria-label', 'Level ' + (i + 1) + ', goal ' + par + (st ? ', ' + st + ' of 3 stars' : ''));
+      b.addEventListener('click', function () { loadLevel(i); closeLevels(); });
+      box.appendChild(b);
+    });
+    $('chapter-map').disabled = !chapterDone(sheetChapter);
+  }
+
+  // ---- the chapter map: drawn on a canvas, shown as a picture the player can save
+  function chapterMap(ch) {
+    var S = 720, c = document.createElement('canvas');
+    c.width = S; c.height = S;
+    var ctx = c.getContext('2d'), css = getComputedStyle(document.documentElement);
+    var tok = function (v, d) { return css.getPropertyValue(v).trim() || d; };
+    var ink = tok('--ink', '#101a2e'), paper = tok('--surface', '#ffffff'), sun = tok('--sun', '#ffd23f');
+    var ink2 = tok('--ink-2', '#4b5870'), tile = tok('--tile', '#e3eaf4'), red = tok('--vermilion', '#e8462a');
+    ctx.fillStyle = paper; ctx.fillRect(0, 0, S, S);
+    ctx.strokeStyle = ink; ctx.lineWidth = 8; ctx.strokeRect(14, 14, S - 28, S - 28);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = ink; ctx.font = '400 60px "Secular One", Assistant, sans-serif';
+    ctx.fillText(chapterInfo(ch).name, S / 2, 96);
+    var got = 0;
+    for (var k = 0; k < 6; k++) if (progress.best[ch * 6 + k]) got += progress.best[ch * 6 + k].s;
+    ctx.fillStyle = ink2; ctx.font = '600 28px Assistant, sans-serif';
+    ctx.fillText((ch < CHAPTERS.length ? 'Chapter ' + (ch + 1) + ' · ' : '') + got + ' of 18 stars', S / 2, 158);
+    var at = [[0.22, 0.38], [0.5, 0.34], [0.78, 0.42], [0.62, 0.6], [0.3, 0.6], [0.5, 0.76]].map(function (p) {
+      return { x: p[0] * S, y: p[1] * S };
+    });
+    ctx.strokeStyle = ink; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    at.forEach(function (p, i) { if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); });
+    ctx.stroke();
+    at.forEach(function (p, k) {
+      var b = progress.best[ch * 6 + k], st = b ? b.s : 0;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 50, 0, Math.PI * 2);
+      ctx.fillStyle = st === 3 ? sun : st ? tile : paper;
+      ctx.fill();
+      ctx.lineWidth = 6; ctx.strokeStyle = ink;
+      if (!st) ctx.setLineDash([10, 9]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = ink; ctx.font = '400 40px "Secular One", Assistant, sans-serif';
+      ctx.fillText(String(k + 1), p.x, p.y + 2);
+      ctx.fillStyle = red; ctx.font = '700 26px Assistant, sans-serif';
+      ctx.fillText(starText(st), p.x, p.y + 80);
+    });
+    ctx.fillStyle = red; ctx.font = '400 30px "Secular One", Assistant, sans-serif';
+    ctx.fillText('Turnfall', S / 2, S - 40);
+    return c.toDataURL('image/png');
+  }
+  function openMap(ch) {
+    mapFrom = document.activeElement;
+    $('map-title').textContent = chapterTitle(ch);
+    $('map-note').textContent = 'Long-press the picture to save it.';
+    $('map-img').removeAttribute('src');
+    $('map').hidden = false;
+    $('map-close').focus();
+    var fonts = document.fonts && document.fonts.load
+      ? Promise.all([document.fonts.load('400 60px "Secular One"'), document.fonts.load('600 28px "Assistant"')]).catch(function () {})
+      : Promise.resolve();
+    var waited = new Promise(function (done) { setTimeout(done, 1200); });
+    Promise.race([fonts, waited]).then(function () {
+      try { $('map-img').src = chapterMap(ch); }
+      catch (e) { $('map-note').textContent = 'Could not show it.'; }
+    });
+  }
+  function closeMap() {
+    $('map').hidden = true;
+    if (mapFrom && mapFrom.focus) mapFrom.focus();
+  }
+
+  // ---- settings: the speed of the animation, and resetting the progress (two taps)
+  function openSettings() {
+    renderSettings();
+    armReset(false);
+    $('settings').hidden = false;
+    $('open-settings').setAttribute('aria-expanded', 'true');
+    $('settings-close').focus();
+  }
+  function closeSettings() {
+    $('settings').hidden = true;
+    $('open-settings').setAttribute('aria-expanded', 'false');
+    $('open-settings').focus();
+  }
+  function renderSettings() {
+    ['normal', 'fast', 'off'].forEach(function (s) {
+      $('speed-' + s).setAttribute('aria-pressed', String(settings.speed === s));
+    });
+    ['auto', 'light', 'dark'].forEach(function (t) {
+      $('theme-' + t).setAttribute('aria-pressed', String(settings.theme === t));
+    });
+    $('sound-toggle').setAttribute('aria-pressed', String(settings.sound));
+    $('vibe-toggle').setAttribute('aria-pressed', String(settings.vibe));
+    renderStats();
+  }
+  // The figures come from this browser's progress: levels solved, three-star levels, stars, daily puzzles, and the streak.
+  function renderStats() {
+    var solved = 0, threes = 0, starSum = 0, key;
+    for (key in progress.best) {
+      if (!progress.best.hasOwnProperty(key)) continue;
+      solved += 1; starSum += progress.best[key].s;
+      if (progress.best[key].s === 3) threes += 1;
+    }
+    var streak = 0, d = new Date();
+    if (!progress.daily[todayKey()]) d.setUTCDate(d.getUTCDate() - 1);
+    while (progress.daily[dateKey(d)]) { streak += 1; d.setUTCDate(d.getUTCDate() - 1); }
+    var cells = [
+      ['Solved', String(solved)],
+      ['Three stars', String(threes)],
+      ['Stars', String(starSum)],
+      ['Daily puzzles', String(Object.keys(progress.daily).length)],
+      ['Streak', String(streak)]
+    ];
+    var box = $('stats');
+    box.textContent = '';
+    cells.forEach(function (c) {
+      var w = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd');
+      w.className = 'stat-cell';
+      dt.textContent = c[0]; dd.textContent = c[1];
+      w.append(dt, dd);
+      box.appendChild(w);
+    });
+  }
+  // Speed, and the page's colour scheme: auto follows the system, light and dark set it explicitly.
+  function applySettings() {
+    setTurnSpeed();
+    if (settings.theme === 'light' || settings.theme === 'dark') document.documentElement.setAttribute('data-theme', settings.theme);
+    else document.documentElement.removeAttribute('data-theme');
+  }
+  var armTimerId = 0;
+  function armReset(on) {
+    var b = $('reset-progress');
+    clearTimeout(armTimerId);
+    if (on) {
+      b.setAttribute('data-armed', '');
+      b.textContent = 'Sure?';
+      armTimerId = setTimeout(function () { armReset(false); }, 4000);
+    } else {
+      b.removeAttribute('data-armed');
+      b.textContent = 'Reset';
+    }
+  }
+
+  // ---- wiring
+  $('undo').addEventListener('click', undo);
+  $('hint').addEventListener('click', hint);
+  $('copy').addEventListener('click', copyResult);
+  $('reset').addEventListener('click', restart);
+  $('next').addEventListener('click', function () {
+    if (mode === 'daily') { $('win').hidden = true; openLevels(); return; }
+    loadLevel(level + 1);
+  });
+  $('win-map').addEventListener('click', function () { openMap(chapterOf(level)); });
+  $('win-levels').addEventListener('click', openLevels);
+  $('open-levels').addEventListener('click', openLevels);
+  $('levels-close').addEventListener('click', closeLevels);
+  $('ch-prev').addEventListener('click', function () { if (sheetChapter > 0) { sheetChapter -= 1; renderLevels(); } });
+  $('ch-next').addEventListener('click', function () { if (sheetChapter < maxChapter()) { sheetChapter += 1; renderLevels(); } });
+  $('open-daily').addEventListener('click', function () { loadDaily(todayKey()); });
+  $('daily-card').addEventListener('click', function () { loadDaily(todayKey()); closeLevels(); });
+  $('chapter-map').addEventListener('click', function () { openMap(sheetChapter); });
+  $('map-close').addEventListener('click', closeMap);
+  $('open-settings').addEventListener('click', openSettings);
+  $('settings-close').addEventListener('click', closeSettings);
+  ['auto', 'light', 'dark'].forEach(function (t) {
+    $('theme-' + t).addEventListener('click', function () { settings.theme = t; saveSettings(); applySettings(); renderSettings(); });
+  });
+  $('sound-toggle').addEventListener('click', function () {
+    settings.sound = !settings.sound; saveSettings(); renderSettings();
+    tone(660, 0.08, 'triangle', 0.05);
+  });
+  $('vibe-toggle').addEventListener('click', function () {
+    settings.vibe = !settings.vibe; saveSettings(); renderSettings();
+    buzz(20);
+  });
+  ['normal', 'fast', 'off'].forEach(function (s) {
+    $('speed-' + s).addEventListener('click', function () { settings.speed = s; saveSettings(); applySettings(); renderSettings(); });
+  });
+  $('reset-progress').addEventListener('click', function () {
+    if (!$('reset-progress').hasAttribute('data-armed')) { armReset(true); return; }
+    progress = { best: {}, daily: {} };
+    saveProgress();
+    armReset(false);
+    msg(MSG.reset);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (!$('map').hidden) { if (e.key === 'Escape') closeMap(); return; }
+    if (!$('settings').hidden) { if (e.key === 'Escape') closeSettings(); return; }
+    if (!$('levels').hidden) { if (e.key === 'Escape') closeLevels(); return; }
+    if ($('play').hidden || !$('win').hidden) return;
+    if (e.key === 'ArrowRight') { e.preventDefault(); turn(1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); turn(-1); }
+    else if (e.key === 'z' || e.key === 'Z') undo();
+    else if (e.key === 'h' || e.key === 'H') hint();
+  });
+
+  // ---- start on the first level that is not finished yet
+  applySettings();
+  var first = 0;
+  while (progress.best[first]) first += 1;
+  loadLevel(first);
+  // The very first visit: the knob nudges, so the player finds out that it moves. No text is needed.
+  if (!Object.keys(progress.best).length) joy.classList.add('teach');
+})();
+</script>
