@@ -4,3 +4,16 @@ build/
 *.out
 .DS_Store
 Thumbs.db
+
+# Android: the app sits at the root (app/, gradle/)
+.gradle/
+.kotlin/
+local.properties
+keystore.properties
+*.jks
+*.keystore
+captures/
+.externalNativeBuild/
+.cxx/
+.idea/
+*.iml
