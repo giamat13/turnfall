@@ -197,7 +197,7 @@ const kickerOf = i => 'Level ' + (i + 1);
   check('D-all ' + LEVELS.length + ' designed levels solved in three stars', stars3 === LEVELS.length, stars3);
 
   // G. past the designed levels the campaign goes on: each level is made from its index, and it is solvable
-  for (const i of [54, 55, 56, 57, 58, 59]) {
+  for (const i of [108, 109, 110, 111, 112, 113]) {
     await page.click('#next');
     await page.waitForFunction(() => document.getElementById('win').hidden, null, { timeout: 4000 });
     const E = CORE.endlessLevel(i);
@@ -211,16 +211,16 @@ const kickerOf = i => 'Level ' + (i + 1);
   // H. persistence: a reload opens the first level not yet finished; the level sheet steps through the chapters
   await page.reload();
   await page.waitForTimeout(300);
-  check('H1 reload opens the first level not yet finished', (await txt('kicker')) === kickerOf(60), await txt('kicker'));
+  check('H1 reload opens the first level not yet finished', (await txt('kicker')) === kickerOf(114), await txt('kicker'));
   await page.click('#open-levels');
-  check('H2 the level sheet opens on the chapter of the current level', (await txt('chapter-name')) === 'Chapter 11', await txt('chapter-name'));
+  check('H2 the level sheet opens on the chapter of the current level', (await txt('chapter-name')) === 'Chapter 20', await txt('chapter-name'));
   check('H3 the next arrow is off past the furthest chapter', await page.isDisabled('#ch-next'));
   await page.click('#ch-prev');
-  check('H4 the previous arrow shows chapter ten', (await txt('chapter-name')) === 'Chapter 10', await txt('chapter-name'));
+  check('H4 the previous arrow shows chapter nineteen', (await txt('chapter-name')) === 'Chapter 19', await txt('chapter-name'));
   await page.click('#ch-next');
-  check('H5 and the next arrow comes back to chapter eleven', (await txt('chapter-name')) === 'Chapter 11', await txt('chapter-name'));
+  check('H5 and the next arrow comes back to chapter twenty', (await txt('chapter-name')) === 'Chapter 20', await txt('chapter-name'));
   await page.click('#levels-grid .lvl:nth-child(3)');
-  check('H6 picking level two starts it and closes the sheet', (await txt('kicker')) === kickerOf(61) && (await page.isHidden('#levels')), await txt('kicker'));
+  check('H6 picking level two starts it and closes the sheet', (await txt('kicker')) === kickerOf(115) && (await page.isHidden('#levels')), await txt('kicker'));
 
   // I. the daily board: the same board in the page and in Node, solvable, saved per day
   const today = (() => { const d = new Date(); const p = n => (n < 10 ? '0' : '') + n; return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()); })();

@@ -11,7 +11,7 @@ The main product is the **Android app**, in this repository's root. The browser 
 - Arrows send the ball in their direction. Springs send it back.
 - Stars: 3 at or under par, 2 within par + 2, 1 otherwise.
 - Each attempt has 2 undos and 3 hints. A hint adds no turn.
-- There are 54 designed levels in 9 chapters. After them, the levels never end: each one is generated from its number.
+- There are 108 designed levels in 18 chapters. After them, the levels never end: each one is generated from its number.
 - The daily puzzle is the same for everyone on the same UTC date.
 
 Progress and settings are saved on the device only. Nothing is sent anywhere.

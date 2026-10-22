@@ -7,7 +7,7 @@
   var KEY = 'world-best-v2', SKEY = 'world-settings-v2';
   var TURN_MS = 420, STEP_MS = 110;
   var SPEEDS = { normal: 1, fast: 0.5, off: 0 };
-  // The first nine chapters are designed by hand (LEVELS, below). Past them the chapters go on for ever.
+  // The first eighteen chapters are designed by hand (LEVELS, below). Past them the chapters go on for ever.
   // Each chapter shows its mechanics as small pictures, not as sentences.
   var CHAPTERS = [
     { name: 'Falling', tags: ['wall'] },
@@ -111,7 +111,7 @@
   }
   function speed() { return SPEEDS[settings.speed]; }
   function chapterOf(i) { return Math.floor(i / 6); }
-  // Chapters past the nine designed ones are only numbered.
+  // Chapters past the nine named ones are only numbered.
   function chapterInfo(ci) {
     return ci < CHAPTERS.length ? CHAPTERS[ci] : { name: 'Chapter ' + (ci + 1), tags: ALL_TAGS };
   }
@@ -133,7 +133,7 @@
     if (!dailyCache[key]) dailyCache[key] = CORE.dailyLevel(key);
     return dailyCache[key];
   }
-  // The level at index i. The first 54 are designed (LEVELS); the rest are made from their index, so they match for everyone.
+  // The level at index i. The first 108 are designed (LEVELS); the rest are made from their index, so they match for everyone.
   function levelAt(i) {
     if (i < LEVELS.length) return LEVELS[i];
     if (!extraLevels[i]) extraLevels[i] = CORE.endlessLevel(i) || LEVELS[i % LEVELS.length];

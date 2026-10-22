@@ -8,7 +8,7 @@ var CORE = (function () {
   var DX = [0, 1, 0, -1], DY = [1, 0, -1, 0];
   var ARROW_ROW = { 'v': 0, '>': 1, '^': 2, '<': 3 };   // row character -> direction
   var ARROW_CHARS = ['v', '>', '^', '<'];              // direction -> row character
-  var ENDLESS_FROM = 54;   // the levels from this index on are made from their index, not designed
+  var ENDLESS_FROM = 108;   // the levels from this index on are made from their index, not designed
   var MAX_BOUNCES = 4;     // a ball sent back by springs this many times stops on the spring
 
   // Cell codes after parse: 'W' wall, 'F' floor, 'H' hole, 'M' mud, 'P' pit, 'Z' spring, 'A0' to 'A3' arrows (the direction).

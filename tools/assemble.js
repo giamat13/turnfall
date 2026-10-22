@@ -1,6 +1,6 @@
 // Assembles the page from its parts. index.html is the content only (the platform adds the document skeleton);
 // build/test.html is the same content in a full document for the local tests. The parts, in order, from src/ and data/:
-// head_a, head_b (styles), body, script_a, core.js (the shared rules), levels_block.txt (the 54 levels), script_b.
+// head_a, head_b (styles), body, script_a, core.js (the shared rules), levels_block.txt (the 108 levels), script_b.
 const fs = require('fs');
 const path = require('path');
 const root = path.join(__dirname, '..');

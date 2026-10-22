@@ -9,7 +9,7 @@ package io.github.giamat13.turnfall.game
  */
 
 /** From this level index on the levels are made from their index, not designed. */
-const val ENDLESS_FROM = 54
+const val ENDLESS_FROM = 108
 
 /** A ball that springs send back this many times stops on the spring. */
 private const val MAX_BOUNCES = 4

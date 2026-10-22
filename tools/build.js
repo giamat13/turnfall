@@ -1,4 +1,4 @@
-// Builds the 54 campaign levels (9 chapters of 6) with core.js. Writes levels.json (everything),
+// Builds the 108 campaign levels (18 chapters of 6) with core.js. Writes levels.json (everything),
 // solutions.json (the optimal turns of each level) and levels_block.txt (the LEVELS array for the page).
 // Writes nothing when a level cannot be found.
 const fs = require('fs');
@@ -16,7 +16,16 @@ const CHAPTERS = [
   { walls: 0.18, mud: 0.1, pits: 0.1, need: 'any', levels: [[6, 7], [6, 7], [7, 8], [7, 8], [7, 8], [7, 8]] },
   { walls: 0.2, mud: 0, pits: 0, arrows: 0.12, springs: 0, need: 'arrows', levels: [[6, 3], [6, 4], [6, 4], [6, 5], [6, 5], [7, 6]] },
   { walls: 0.2, mud: 0, pits: 0.05, arrows: 0.04, springs: 0.1, need: 'springs', levels: [[6, 3], [6, 4], [6, 4], [6, 5], [7, 5], [7, 6]] },
-  { walls: 0.18, mud: 0.08, pits: 0.08, arrows: 0.07, springs: 0.07, need: ['arrows', 'springs'], levels: [[6, 4], [6, 5], [6, 5], [7, 6], [7, 6], [7, 7]] }
+  { walls: 0.18, mud: 0.08, pits: 0.08, arrows: 0.07, springs: 0.07, need: ['arrows', 'springs'], levels: [[6, 4], [6, 5], [6, 5], [7, 6], [7, 6], [7, 7]] },
+  { walls: 0.2, mud: 0.1, pits: 0.1, arrows: 0.06, springs: 0.06, need: 'any', levels: [[6, 6], [6, 7], [7, 7], [7, 8], [7, 8], [7, 8]] },
+  { walls: 0.2, mud: 0.08, pits: 0.1, arrows: 0.08, springs: 0.08, need: ['arrows', 'springs'], levels: [[7, 7], [7, 8], [7, 8], [7, 8], [7, 9], [7, 9]] },
+  { walls: 0.18, mud: 0.1, pits: 0.1, arrows: 0.08, springs: 0.08, need: 'any', levels: [[7, 8], [7, 8], [7, 9], [7, 9], [7, 9], [7, 10]] },
+  { walls: 0.2, mud: 0.1, pits: 0.1, arrows: 0.06, springs: 0.06, need: 'any', levels: [[7, 8], [7, 8], [7, 9], [7, 9], [7, 9], [7, 9]] },
+  { walls: 0.2, mud: 0.08, pits: 0.12, arrows: 0.08, springs: 0.08, need: ['arrows', 'springs'], levels: [[7, 9], [7, 9], [7, 9], [7, 10], [7, 10], [7, 10]] },
+  { walls: 0.18, mud: 0.1, pits: 0.1, arrows: 0.08, springs: 0.08, need: 'any', levels: [[7, 10], [7, 10], [8, 10], [8, 10], [8, 11], [8, 11]] },
+  { walls: 0.22, mud: 0.1, pits: 0.1, arrows: 0.08, springs: 0.08, need: 'any', levels: [[8, 10], [8, 10], [8, 11], [8, 11], [8, 11], [8, 12]] },
+  { walls: 0.2, mud: 0.1, pits: 0.12, arrows: 0.1, springs: 0.1, need: ['arrows', 'springs'], levels: [[8, 11], [8, 11], [8, 12], [8, 12], [8, 12], [8, 12]] },
+  { walls: 0.2, mud: 0.1, pits: 0.1, arrows: 0.1, springs: 0.1, need: 'any', levels: [[8, 12], [8, 12], [8, 12], [8, 12], [8, 12], [8, 12]] }
 ];
 
 const avoid = Object.create(null);

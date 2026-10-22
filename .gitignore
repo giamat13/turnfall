@@ -17,3 +17,6 @@ captures/
 .cxx/
 .idea/
 *.iml
+
+# Local backups: signing keys and copies of uploaded bundles. Never commit these.
+backups/

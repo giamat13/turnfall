@@ -12,7 +12,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** The page's rules, checked on all 54 designed levels against src/core.js. */
+/** The page's rules, checked on all 108 designed levels against src/core.js. */
 class RulesTest {
     private val designed = fixture("designed.json").jsonArray
 

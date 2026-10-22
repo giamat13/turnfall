@@ -70,10 +70,10 @@ const designed = levels.map((L, index) => {
 });
 write('designed.json', designed);
 
-// Endless levels: the first ten chapters, and a few later ones that use bigger boards.
+// Endless levels: the first 54 past the designed ones, and a few later ones that use bigger boards.
 const endlessIndex = [];
-for (let i = 54; i < 114; i++) endlessIndex.push(i);
-endlessIndex.push(126, 150, 210, 300);
+for (let i = 108; i < 162; i++) endlessIndex.push(i);
+endlessIndex.push(210, 300);
 const endless = endlessIndex.map((index) => {
   const t0 = Date.now();
   const L = CORE.endlessLevel(index);

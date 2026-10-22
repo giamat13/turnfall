@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Turnfall feature graphic</title>
+<style>
+  /* The fonts and the icon are the app's own files, so the graphic matches the game. */
+  @font-face { font-family: "Secular One"; src: url("../../app/src/main/res/font/secular_one.ttf"); }
+  @font-face { font-family: "Assistant"; src: url("../../app/src/main/res/font/assistant_variable.ttf"); font-weight: 200 800; }
+
+  html, body { margin: 0; background: #3D6CF2; }
+
+  .canvas {
+    position: relative;
+    width: 1024px;
+    height: 500px;
+    overflow: hidden;
+    background: #3D6CF2;
+    color: #FFFFFF;
+    font-family: "Assistant", sans-serif;
+  }
+
+  .text {
+    position: absolute;
+    left: 80px;
+    top: 0;
+    bottom: 0;
+    width: 560px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  h1 {
+    margin: 0;
+    font-family: "Secular One", sans-serif;
+    font-weight: normal;
+    font-size: 116px;
+    line-height: 1;
+    letter-spacing: 1px;
+  }
+
+  p {
+    margin: 24px 0 0;
+    font-size: 38px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: #E6EEFF;
+  }
+
+  /* The icon's own background is the page's blue, so its edge does not show. */
+  .art {
+    position: absolute;
+    right: 60px;
+    top: 50%;
+    width: 280px;
+    height: 280px;
+    transform: translateY(-50%);
+  }
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="text">
+      <h1>Turnfall</h1>
+      <p>Turn the world. Roll the ball.</p>
+    </div>
+    <img class="art" src="../../app/src/main/res/drawable-nodpi/app_icon_art.png" alt="">
+  </div>
+</body>
+</html>

@@ -1,0 +1,5 @@
+First release.
+- 54 designed levels in 9 chapters, then endless levels.
+- Daily puzzle.
+- Chapter maps you can save to your gallery.
+- Settings for speed, theme, sound and vibration.

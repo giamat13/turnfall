@@ -1,0 +1,29 @@
+Turnfall is a one-screen puzzle. The world turns in steps of 90 degrees, and gravity pulls the ball down. Turn the world so the ball rolls into the hole, in as few turns as possible.
+
+HOW TO PLAY
+- Push the joystick left or right, or use the arrow keys on a keyboard, to turn the world. Push past halfway and let go to turn. A small push turns nothing.
+- Walls stop the ball. Mud stops it on the spot.
+- Arrows send the ball in their direction. Springs send it back.
+- A pit ends the attempt. You can undo or restart.
+
+STARS
+- Three stars at or under par, two stars within par plus two, one star otherwise.
+
+HELP
+- Each attempt has 2 undos and 3 hints. A hint adds no turn.
+
+LEVELS
+- 108 designed levels in 18 chapters.
+- After them the levels never end. Each one is generated from its number.
+- A chapter map for each chapter. Long-press it to save a picture to your gallery.
+
+DAILY PUZZLE
+- One puzzle a day. It is the same for everyone on the same UTC date.
+
+SETTINGS
+- Speed, theme, sound and vibration. Turn the vibration off if you prefer silence.
+- Share your result on the win card through your phone's share menu.
+
+PRIVACY
+- No ads, no accounts, no analytics, no internet access.
+- Your progress and settings stay on your phone. Uninstalling Turnfall removes them.
